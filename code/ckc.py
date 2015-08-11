@@ -1,11 +1,11 @@
 import numpy as np
 import struct, glob
 
-ckc_dir = '/Users/bjohnson/Codes/SPS/CKC/'
+ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/'
 
 
 def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
-                 outname='test.h5'):
+                 outname='test.h5', **extras):
         """
         """
         import h5py
@@ -13,7 +13,8 @@ def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
         outwave, outres = construct_outwave(R, wmin, wmax, velocity)
         wave = np.concatenate(outwave)
         params = spec_params(expanded=True)
-        spectra = read_and_downsample_spectra(outwave, outres, velocity=velocity):
+        spectra = read_and_downsample_spectra(outwave, outres, velocity=velocity,
+                                              **extras)
         with h5py.File(outname, 'r') as f:
                 dspec = f.create_dataset("spectra", data=spectra)
                 dwave = f.create_dataset("wavelengths", data=wave)
@@ -44,13 +45,30 @@ def construct_outwave(resolution, wlo, whi, velocity):
     return out, res
 
 
+def spec_params(expanded=False):
+    zlegend = np.loadtxt('{0}/zlegend.dat'.format(ckc_dir))
+    logg = np.loadtxt('{0}/basel_logg.dat'.format(ckc_dir))
+    logt = np.loadtxt('{0}/basel_logt.dat'.format(ckc_dir))
+    if not expanded:
+        return zlegend, logg, logt
+    else:
+        dt = [('Z', np.float), ('logg', np.float), ('logt', np.float)]
+        pars = np.empty(len(zlegend) * len(logg) * len(logt), dtype=dt)
+        i = 0
+        for z in zlegend:
+            for g in logg:
+                for t in logt:
+                    pars[i,:] = np.array([z, g, t])
+                    i += 1
+        return pars
+
+
 def read_and_downsample_spectra(outwave, outres,
-                                velocity=True,
-                                write_binary=False,
-                                binout='ckc_new_z{0}.bin'):
+                                velocity=True, write_binary=False,
+                                binout='ckc_new_z{0}.bin', **extras):
 
     wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
-    nw = len(wave)
+    nw = 47378#len(wave)
     zlegend, logg, logt = spec_params()
     nspec = len(logg) * len(logt)
 
@@ -59,12 +77,12 @@ def read_and_downsample_spectra(outwave, outres,
     zlist = ['{0:06.4f}'.format(z) for z in zlegend]
     # names = glob.glob('{0}/bin/ckc14_z*.spectra.bin'.format(ckc_dir))
     for z in zlist:
-        count = 0
+        count = -1
         name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
         if write_binary:
             outfile = open(binout.format(z), 'wb')
         with open(name, 'rb') as f:
-            while count < nspec:
+            while count < (nspec-1):
                 count += 1
                 for iw in range(nw):
                     byte = f.read(4)
@@ -96,26 +114,50 @@ def read_and_downsample_spectra(outwave, outres,
     return np.array(newspec)
 
 
-def spec_params(expanded=False):
-    zlegend = np.loadtxt('{0}/zlegend.dat'.format(ckc_dir))
-    logg = np.loadtxt('{0}/basel_logg.dat'.format(ckc_dir))
-    logt = np.loadtxt('{0}/basel_logt.dat'.format(ckc_dir))
-    if not expanded:
-        return zlegend, logg, logt
-    else:
-        dt = [('Z', np.float), ('logg', np.float), ('logt', np.float)]
-        pars = np.empty(len(zlegend) * len(logg) * len(logt), dtype=dt)
-        i = 0
-        for z in zlegend:
-            for g in logg:
-                for t in logt:
-                    pars[i,:] = np.array([z, g, t])
-                    i += 1
-        return pars
+def binary_to_hdf(hname):
+    import h5py
+    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    nw = 47378#len(wave)
+    zlegend, logg, logt = spec_params()
+    nspec = len(logg) * len(logt)
+    spec = np.empty([len(logg), len(logt), nw])
 
-def binary_to_hdf():
-    pass
+    f = h5py.File(hname, 'w')
+    spgr = f.create_group('spectra')
+    f.create_dataset('wavelengths', data=wave)
+    f.create_dataset('logg', data=logg)
+    f.create_dataset('logt', data=logt)
+    
+    zlist = ['{0:06.4f}'.format(z) for z in zlegend]
+    for z in zlist[0:1]:
+        zgr = spgr.create_group('z'+z)
+        name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+        count = -1
+        with open(name, 'rb') as f:
+            while count < (nspec-1):
+                count += 1
+                it = np.mod(count, len(logt))
+                ig = fix(count / len(logt))
+                for iw in range(nw):
+                    byte = f.read(4)
+                    spec[ig, it, iw] = struct.unpack('f', byte)[0]
+        zgr.create_dataset('flux', data=spec)
+    f.close()
 
+
+def wave_from_ssp():
+    out = open('ckc14.lambda', 'w')
+    fname = 'SSP_Padova_CKC14_Salpeter_Z0.0002.out.spec'
+    f = open(fname,"r")
+    for i in range(9):
+        j = f.readline()
+    wave = f.readline()
+    for w in wave.split():
+        out.write(float(w), '\n')
+    f.close()
+    out.close()
+
+    
 def find_segments(wave, restol=0.1):
     """ Find places where the resolution of a spectrum changes by
     using changes in the wavelength sampling.
