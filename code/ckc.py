@@ -10,7 +10,7 @@ def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
         """
         import h5py
 
-        outwave, outres = construct_outwave(R, wmin, wmax, velocity)
+        outwave, outres = construct_outwave(R, wmin, wmax, velocity=velocity)
         wave = np.concatenate(outwave)
         params = spec_params(expanded=True)
         spectra = read_and_downsample_spectra(outwave, outres, velocity=velocity,
@@ -21,17 +21,19 @@ def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
                 dpar =  f.create_dataset("parameters", data=params)
 
 
-def construct_outwave(resolution, wlo, whi, velocity):
+def construct_outwave(resolution, wlo, whi, velocity=True,
+                      absminwave=100, absmaxwave=1e8):
     """Given a spectral range of interest and a resolution in that
     range, construct wavelength vectors and resolution intervals that will
     cover this range at the desired reolution, but also ranges outside
-    this at lower resolution (suitable for photometry calculations)
+    this at lower resolution (suitable for photometry, ionizing flux,
+    and dust emission calculations)
     """
     if velocity:
         lores = 100 #R
     else:
         lores = 30  # AA
-    wave = [(2000, wlo), (wlo, whi), (wlo, 2e4)]
+    wave = [(absminwave, wlo), (wlo, whi), (whi, absmaxwave)]
     res = [lores, resolution, lores]
 
     out = []
@@ -58,7 +60,7 @@ def spec_params(expanded=False):
         for z in zlegend:
             for g in logg:
                 for t in logt:
-                    pars[i,:] = np.array([z, g, t])
+                    pars[i] = (z, g, t)
                     i += 1
         return pars
 
