@@ -33,9 +33,9 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
 def spec_params(expanded=False, **extras):
     """Get paramaters (Z, g, T) for the CKC library.
     """
-    zlegend = np.loadtxt('{0}/zlegend.dat'.format(ckc_dir))
-    logg = np.loadtxt('{0}/basel_logg.dat'.format(ckc_dir))
-    logt = np.loadtxt('{0}/basel_logt.dat'.format(ckc_dir))
+    zlegend = np.loadtxt('{0}/data/zlegend.dat'.format(ckc_dir))
+    logg = np.loadtxt('{0}/data/basel_logg.dat'.format(ckc_dir))
+    logt = np.loadtxt('{0}/data/basel_logt.dat'.format(ckc_dir))
     if not expanded:
         return zlegend, logg, logt
     else:
@@ -80,7 +80,7 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
         outfile = open(binout.format(z), 'wb')
     name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
 
-    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    wave = np.loadtxt('{0}/data/ckc14.lambda'.format(ckc_dir))
     zlegend, logg, logt = spec_params()
     nw = len(wave)
     nspec = len(logg) * len(logt)
@@ -135,7 +135,7 @@ def read_binary_spec(filename, nw, nspec):
 
 def binary_to_hdf(hname):
     import h5py
-    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    wave = np.loadtxt('{0}/data/ckc14.lambda'.format(ckc_dir))
     nw = len(wave)
     zlegend, logg, logt = spec_params()
     nspec = len(logg) * len(logt)
@@ -173,7 +173,7 @@ def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
 
 
 def wave_from_ssp():
-    out = open('ckc14.lambda', 'w')
+    out = open('{0}/data/ckc14.lambda'.format(ckc_dir), 'w')
     fname = 'SSP_Padova_CKC14_Salpeter_Z0.0002.out.spec'
     f = open(fname, "r")
     for i in range(9):

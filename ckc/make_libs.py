@@ -6,7 +6,13 @@ import h5py
 
 def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
              dirname='./', name='ckc14_new', **extras):
+    """Make a new downsampled CKC library, with the desired resolution
+    in the desired wavelength range.  This makes both binary files
+    (one for each metallicity) and a wavelength file, suitable for use
+    in FSPS.  It also makes an hdf5 file.
 
+    This is deprecated in favor of make_lib_byz below
+    """
     downsample = ckc.read_and_downsample_spectra
     
     if not os.path.exists(dirname):
@@ -31,6 +37,11 @@ def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
 def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
              dirname='./', name='ckc14_new', **extras):
 
+    """Make a new downsampled CKC library, with the desired resolution
+    in the desired wavelength range.  This makes both binary files
+    (one for each metallicity) and a wavelength file, suitable for use
+    in FSPS.  It also makes an hdf5 file with the downsampled spectra.
+    """
     downsample = ckc.read_and_downsample_onez
 
     # set up output names, directories, and files
@@ -66,6 +77,11 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
 
 
 def flatten_h5(h5file):
+    """Change the ``spectra`` group in the output from make_lib_byz to
+    be a single dataset, with shape (nz*ng*nt, nwave).  This way the
+    spectra match the ``parameters`` dataset line by line. This method
+    creates a new file with the extension ``.flat.h5``
+    """
     with h5py.File(h5file, "r") as f:
         with h5py.File(h5file.replace('.h5','.flat.h5'), "w") as newf:
             f.copy("wavelengths", newf)
