@@ -5,7 +5,7 @@ ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/'
 
 
 def construct_outwave(resolution, wlo, whi, velocity=True,
-                      absminwave=100, absmaxwave=1e8):
+                      absminwave=100, absmaxwave=1e8, **extras):
     """Given a spectral range of interest and a resolution in that
     range, construct wavelength vectors and resolution intervals that will
     cover this range at the desired reolution, but also ranges outside
@@ -30,7 +30,7 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     return out, res
 
 
-def spec_params(expanded=False):
+def spec_params(expanded=False, **extras):
     """Get paramaters (Z, g, T) for the CKC library.
     """
     zlegend = np.loadtxt('{0}/zlegend.dat'.format(ckc_dir))
@@ -52,7 +52,7 @@ def spec_params(expanded=False):
 
 def read_and_downsample_spectra(outwave, outres,
                                 velocity=True, write_binary=False,
-                                binout='ckc_new_z{0}.bin', **extras):
+                                binout='ckc_new_z{0}.bin', **kwargs):
     """Loop through the metallicities of the CKC library, read the
     binary files, downsample them, and return an array of shape (nz,
     ng*nt, nw)
@@ -63,7 +63,7 @@ def read_and_downsample_spectra(outwave, outres,
     # names = glob.glob('{0}/bin/ckc14_z*.spectra.bin'.format(ckc_dir))
     for z in zlist:
         zspec = read_and_downsample_onez(z, outwave, outres, binout=binout,
-                                         write_binary=write_binary)
+                                         write_binary=write_binary, **kwargs)
         newspec.append(zspec)
 
     return np.array(newspec)
@@ -71,7 +71,7 @@ def read_and_downsample_spectra(outwave, outres,
 
 def read_and_downsample_onez(z, outwave, outres, velocity=True,
                              binout='ckc_new_z{0}.bin',
-                             write_binary=False):
+                             write_binary=False, **kwargs):
     """Read one of the CKC binary files, loop through the spectra in
     it, downsample them, optionally write to a new binary file, and
     return the spectra.
@@ -89,7 +89,7 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
     specs = read_binary_spec(name, nw, nspec)
     for i, spec in enumerate(specs):
         outspec = downsample_onespec(wave, spec, outwave, outres,
-                                     velocity=velocity)
+                                     velocity=velocity, **kwargs)
         ospec = np.concatenate(outspec)
         if write_binary:
             for flux in ospec:
@@ -111,7 +111,8 @@ def read_binary_spec(filename, nw, nspec):
     return spec
 
 
-def downsample_onespec(wave, spec, outwave, outres, velocity=True):
+def downsample_onespec(wave, spec, outwave, outres,
+                       velocity=True, **kwargs):
     outspec = []
     # loop over the output segments
     for owave, ores in zip(outwave, outres):
@@ -127,7 +128,7 @@ def downsample_onespec(wave, spec, outwave, outres, velocity=True):
         imin = np.argmin(np.abs(smin - wave))
         imax = np.argmin(np.abs(smax - wave))
         ospec = smooth(wave[imin:imax], spec[imin:imax], sigma,
-                       velocity=velocity, outwave=owave)
+                       velocity=velocity, outwave=owave, **kwargs)
         outspec += [ospec]
     return outspec
 
@@ -191,6 +192,7 @@ def find_segments(wave, restol=0.1):
     :param restol:
         Fractional resolution change between adjacent elements that is
         used to define a new segment.
+
     :returns segments:
         A list of tuples contaning the lower and upper index of each
         segement and the average `resolution` (lambda/dlambda)
@@ -209,18 +211,26 @@ def find_segments(wave, restol=0.1):
     return segments
 
 
+def smooth(wave, spec, sigma, velocity=True, **kwargs):
+    if velocity:
+        return smooth_vel(wave, spec, sigma, **kwargs)
+    else:
+        return smooth_wave(wave, spec, sigma, **kwargs)
+
+
 def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
                nsigma=10):
-    """Smooth a spectrum in velocity space
+    """Smooth a spectrum in velocity space.  This is insanely slow,
+    but general and correct.
 
     :param sigma:
         desired velocity resolution (km/s)
+
     :param nsigma:
         Number of sigma away from the output wavelength to consider in
-        the integral.  If less than zero, all wavelengths are used in
-        the integral.  Setting this to some positive number decreses
-        the scaling constant in the O(N_out * N_in) algorithm used
-        here.
+        the integral.  If less than zero, all wavelengths are used.
+        Setting this to some positive number decreses the scaling
+        constant in the O(N_out * N_in) algorithm used here.
     """
     sigma_eff = np.sqrt(sigma**2 - inres**2)/2.998e5
     if outwave is None:
@@ -248,7 +258,10 @@ def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
 
 def smooth_wave(wave, spec, sigma, outwave=None,
                 inres=0, in_vel=False, **extras):
-    """
+    """Smooth a spectrum in wavelength space.  This is insanely slow,
+    but general and correct (except for the treatment of the input
+    resolution if it is velocity)
+
     :param sigma:
         Desired reolution in wavelength units
 
@@ -286,10 +299,3 @@ def smooth_wave(wave, spec, sigma, outwave=None,
         f = np.exp(-0.5 * x**2)
         flux[i] = np.trapz(f * spec, wave) / np.trapz(f, wave)
     return flux
-
-
-def smooth(wave, spec, sigma, velocity=True, **kwargs):
-    if velocity:
-        return smooth_vel(wave, spec, sigma, **kwargs)
-    else:
-        return smooth_wave(wave, spec, sigma, **kwargs)
