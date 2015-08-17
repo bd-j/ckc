@@ -65,6 +65,18 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
             f.flush()
 
 
+def flatten_h5(h5file):
+    with h5py.File(h5file, "r") as f:
+        with h5py.File(h5file.replace('.h5','.flat.h5'), "w") as newf:
+            f.copy("wavelengths", newf)
+            f.copy("parameters", newf)
+            newspec = []
+            zs = np.sort(f['spectra'].keys())
+            for z in zs:
+                newspec.append(np.squeeze(f['spectra'][z]))
+            newf.create_dataset('spectra', data=np.vstack(newspec))
+
+
 def make_deimos():
     R, wmin, wmax = 5000, 4000, 11000
     ckc.resample_ckc(R, wmin, wmax, velocity=False,

@@ -99,18 +99,6 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
     return np.array(newspec)
 
 
-def read_binary_spec(filename, nw, nspec):
-    count = 0
-    spec = np.empty([nspec, nw])
-    with open(filename, 'rb') as f:
-        while count < nspec:
-                count += 1
-                for iw in range(nw):
-                    byte = f.read(4)
-                    spec[count-1, iw] = struct.unpack('f', byte)[0]
-    return spec
-
-
 def downsample_onespec(wave, spec, outwave, outres,
                        velocity=True, **kwargs):
     outspec = []
@@ -131,6 +119,18 @@ def downsample_onespec(wave, spec, outwave, outres,
                        velocity=velocity, outwave=owave, **kwargs)
         outspec += [ospec]
     return outspec
+
+
+def read_binary_spec(filename, nw, nspec):
+    count = 0
+    spec = np.empty([nspec, nw])
+    with open(filename, 'rb') as f:
+        while count < nspec:
+                count += 1
+                for iw in range(nw):
+                    byte = f.read(4)
+                    spec[count-1, iw] = struct.unpack('f', byte)[0]
+    return spec
 
 
 def binary_to_hdf(hname):
