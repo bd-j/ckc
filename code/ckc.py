@@ -4,23 +4,6 @@ import struct, glob
 ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/'
 
 
-def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
-                 outname='test.h5', **extras):
-        """
-        """
-        import h5py
-
-        outwave, outres = construct_outwave(R, wmin, wmax, velocity=velocity)
-        wave = np.concatenate(outwave)
-        params = spec_params(expanded=True)
-        spectra = read_and_downsample_spectra(outwave, outres, velocity=velocity,
-                                              **extras)
-        with h5py.File(outname, 'r') as f:
-                dspec = f.create_dataset("spectra", data=spectra)
-                dwave = f.create_dataset("wavelengths", data=wave)
-                dpar =  f.create_dataset("parameters", data=params)
-
-
 def construct_outwave(resolution, wlo, whi, velocity=True,
                       absminwave=100, absmaxwave=1e8):
     """Given a spectral range of interest and a resolution in that
@@ -30,7 +13,7 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     and dust emission calculations)
     """
     if velocity:
-        lores = 100 #R
+        lores = 100  # R
     else:
         lores = 30  # AA
     wave = [(absminwave, wlo), (wlo, whi), (whi, absmaxwave)]
@@ -48,6 +31,8 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
 
 
 def spec_params(expanded=False):
+    """Get paramaters (Z, g, T) for the CKC library.
+    """
     zlegend = np.loadtxt('{0}/zlegend.dat'.format(ckc_dir))
     logg = np.loadtxt('{0}/basel_logg.dat'.format(ckc_dir))
     logt = np.loadtxt('{0}/basel_logt.dat'.format(ckc_dir))
@@ -68,89 +53,128 @@ def spec_params(expanded=False):
 def read_and_downsample_spectra(outwave, outres,
                                 velocity=True, write_binary=False,
                                 binout='ckc_new_z{0}.bin', **extras):
-
-    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
-    nw = 47378#len(wave)
-    zlegend, logg, logt = spec_params()
-    nspec = len(logg) * len(logt)
-
-    spec = np.empty(nw)
+    """Loop through the metallicities of the CKC library, read the
+    binary files, downsample them, and return an array of shape (nz,
+    ng*nt, nw)
+    """
     newspec = []
+    zlegend, logg, logt = spec_params()
     zlist = ['{0:06.4f}'.format(z) for z in zlegend]
     # names = glob.glob('{0}/bin/ckc14_z*.spectra.bin'.format(ckc_dir))
     for z in zlist:
-        count = -1
-        name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+        zspec = read_and_downsample_onez(z, outwave, outres, binout=binout,
+                                         write_binary=write_binary)
+        newspec.append(zspec)
+
+    return np.array(newspec)
+
+
+def read_and_downsample_onez(z, outwave, outres, velocity=True,
+                             binout='ckc_new_z{0}.bin',
+                             write_binary=False):
+    """Read one of the CKC binary files, loop through the spectra in
+    it, downsample them, optionally write to a new binary file, and
+    return the spectra.
+    """
+    if write_binary:
+        outfile = open(binout.format(z), 'wb')
+    name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+
+    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    zlegend, logg, logt = spec_params()
+    nw = len(wave)
+    nspec = len(logg) * len(logt)
+
+    newspec = []
+    specs = read_binary_spec(name, nw, nspec)
+    for i, spec in enumerate(specs):
+        outspec = downsample_onespec(wave, spec, outwave, outres,
+                                     velocity=velocity)
+        ospec = np.concatenate(outspec)
         if write_binary:
-            outfile = open(binout.format(z), 'wb')
-        with open(name, 'rb') as f:
-            while count < (nspec-1):
+            for flux in ospec:
+                outfile.write(struct.pack('f', flux))
+
+        newspec.append([ospec])
+    return np.array(newspec)
+
+
+def read_binary_spec(filename, nw, nspec):
+    count = 0
+    spec = np.empty([nspec, nw])
+    with open(filename, 'rb') as f:
+        while count < nspec:
                 count += 1
                 for iw in range(nw):
                     byte = f.read(4)
-                    spec[iw] = struct.unpack('f', byte)[0]
-                # sigma = [2.998e5/s[2] * 2 for s in segments]
-                outspec = []
-                # loop over the output segments
-                for owave, ores in zip(outwave, outres):
-                    wmin, wmax = owave.min(), owave.max()
-                    if velocity:
-                        sigma = 2.998e5 / ores #in km/s
-                        smin = wmin - 5 * wmin/ores
-                        smax = wmax + 5 * wmax/ores
-                    else:
-                        sigma = ores  # in AA
-                        smin = wmin - 5 * sigma
-                        smax = wmax + 5 * sigma
-                    imin = np.argmin(np.abs(smin - wave))
-                    imax = np.argmin(np.abs(smax - wave))
-                    ospec = smooth(wave[imin:imax], spec[imin:imax], sigma,
-                                   velocity=velocity, outwave=owave)
-                    outspec += [ospec]
-                    if write_binary:
-                        for flux in ospec:
-                            outfile.write(struct.pack('f', flux))
+                    spec[count-1, iw] = struct.unpack('f', byte)[0]
+    return spec
 
-                newspec.append([np.concatenate(outspec)])
 
-    return np.array(newspec)
+def downsample_onespec(wave, spec, outwave, outres, velocity=True):
+    outspec = []
+    # loop over the output segments
+    for owave, ores in zip(outwave, outres):
+        wmin, wmax = owave.min(), owave.max()
+        if velocity:
+            sigma = 2.998e5 / ores  # in km/s
+            smin = wmin - 5 * wmin/ores
+            smax = wmax + 5 * wmax/ores
+        else:
+            sigma = ores  # in AA
+            smin = wmin - 5 * sigma
+            smax = wmax + 5 * sigma
+        imin = np.argmin(np.abs(smin - wave))
+        imax = np.argmin(np.abs(smax - wave))
+        ospec = smooth(wave[imin:imax], spec[imin:imax], sigma,
+                       velocity=velocity, outwave=owave)
+        outspec += [ospec]
+    return outspec
 
 
 def binary_to_hdf(hname):
     import h5py
     wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
-    nw = 47378#len(wave)
+    nw = len(wave)
     zlegend, logg, logt = spec_params()
     nspec = len(logg) * len(logt)
-    spec = np.empty([len(logg), len(logt), nw])
 
-    f = h5py.File(hname, 'w')
-    spgr = f.create_group('spectra')
-    f.create_dataset('wavelengths', data=wave)
-    f.create_dataset('logg', data=logg)
-    f.create_dataset('logt', data=logt)
-    
-    zlist = ['{0:06.4f}'.format(z) for z in zlegend]
-    for z in zlist[0:1]:
-        zgr = spgr.create_group('z'+z)
-        name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
-        count = -1
-        with open(name, 'rb') as f:
-            while count < (nspec-1):
-                count += 1
-                it = np.mod(count, len(logt))
-                ig = fix(count / len(logt))
-                for iw in range(nw):
-                    byte = f.read(4)
-                    spec[ig, it, iw] = struct.unpack('f', byte)[0]
-        zgr.create_dataset('flux', data=spec)
-    f.close()
+    with h5py.File(hname, "w") as f:
+        spgr = f.create_group('spectra')
+        fw = f.create_dataset('wavelengths', data=wave)
+        fg = f.create_dataset('logg', data=logg)
+        ft = f.create_dataset('logt', data=logt)
+
+        zlist = ['{0:06.4f}'.format(z) for z in zlegend]
+        for z in zlist:
+            name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+            spec = read_binary_spec(name, nw, nspec)
+            spec = spec.reshape(len(logg), len(logt), nw)
+            fl = spgr.create_dataset('z{0}'.format(z), data=spec)
+            f.flush()
+
+
+def resample_ckc(R=3000, wmin=3500, wmax=10000, velocity=True,
+                 outname='test.h5', **extras):
+        """Non-working method
+        """
+        import h5py
+
+        outwave, outres = construct_outwave(R, wmin, wmax, velocity=velocity)
+        wave = np.concatenate(outwave)
+        params = spec_params(expanded=True)
+        spectra = read_and_downsample_spectra(outwave, outres,
+                                              velocity=velocity, **extras)
+        with h5py.File(outname, 'r') as f:
+                dspec = f.create_dataset("spectra", data=spectra)
+                dwave = f.create_dataset("wavelengths", data=wave)
+                dpar = f.create_dataset("parameters", data=params)
 
 
 def wave_from_ssp():
     out = open('ckc14.lambda', 'w')
     fname = 'SSP_Padova_CKC14_Salpeter_Z0.0002.out.spec'
-    f = open(fname,"r")
+    f = open(fname, "r")
     for i in range(9):
         j = f.readline()
     wave = f.readline()
@@ -159,7 +183,7 @@ def wave_from_ssp():
     f.close()
     out.close()
 
-    
+
 def find_segments(wave, restol=0.1):
     """ Find places where the resolution of a spectrum changes by
     using changes in the wavelength sampling.
@@ -171,7 +195,7 @@ def find_segments(wave, restol=0.1):
         A list of tuples contaning the lower and upper index of each
         segement and the average `resolution` (lambda/dlambda)
     """
-    
+
     dwave = np.diff(wave)
     mwave = wave[:-1] + dwave/2
     res = mwave/dwave
@@ -180,30 +204,45 @@ def find_segments(wave, restol=0.1):
     breakpoints = np.where(abs(dres/res[:-1]) > restol)[0] + 1
     lims = [0] + breakpoints.tolist() + [len(wave)]
     segments = []
-    for i in range(len(lims) -1):
+    for i in range(len(lims) - 1):
         segments.append((lims[i], lims[i+1], res[lims[i]:lims[i+1]].mean()))
     return segments
 
 
-def smooth_vel(wave, spec, sigma, outwave=None, inres=0):
+def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
+               nsigma=10):
     """Smooth a spectrum in velocity space
+
     :param sigma:
         desired velocity resolution (km/s)
+    :param nsigma:
+        Number of sigma away from the output wavelength to consider in
+        the integral.  If less than zero, all wavelengths are used in
+        the integral.  Setting this to some positive number decreses
+        the scaling constant in the O(N_out * N_in) algorithm used
+        here.
     """
-    sigma_eff = np.sqrt(sigma**2-inres**2)/2.998e5
+    sigma_eff = np.sqrt(sigma**2 - inres**2)/2.998e5
     if outwave is None:
         outwave = wave
     if sigma <= 0.0:
         return np.interp(wave, outwave, flux)
-    
+
     lnwave = np.log(wave)
     flux = np.zeros(len(outwave))
-    norm = 1/np.sqrt(2 * np.pi)/sigma
-    
+    # norm = 1/np.sqrt(2 * np.pi)/sigma
+    maxdiff = nsigma * sigma
+
     for i, w in enumerate(outwave):
         x = np.log(w) - lnwave
-        f = np.exp( -0.5*(x/sigma_eff)**2 )
-        flux[i] = np.trapz( f * spec, x) / np.trapz(f, x)
+        if nsigma > 0:
+            good = (x > -maxdiff) & (x < maxdiff)
+            x = x[good]
+            _spec = spec[good]
+        else:
+            _spec = spec
+        f = np.exp(-0.5 * (x / sigma_eff)**2)
+        flux[i] = np.trapz(f * _spec, x) / np.trapz(f, x)
     return flux
 
 
@@ -212,11 +251,11 @@ def smooth_wave(wave, spec, sigma, outwave=None,
     """
     :param sigma:
         Desired reolution in wavelength units
-        
+
     :param inres:
         Resolution of the input, in either wavelength units or
         lambda/dlambda (c/v)
-        
+
     :param in_vel:
         If True, the input spectrum has been smoothed in velocity
         space, and inres is in dlambda/lambda.
@@ -239,20 +278,18 @@ def smooth_wave(wave, spec, sigma, outwave=None,
             raise ValueError("Desired wavelength sigma is lower "
                              "than the value possible for this input "
                              "spectrum ({0}).".format(sigma_min))
-        sigma_eff = np.sqrt(sigma**2- inres**2)
+        sigma_eff = np.sqrt(sigma**2 - inres**2)
 
     flux = np.zeros(len(outwave))
     for i, w in enumerate(outwave):
-        #if in_vel:
-        #    sigma_eff = np.sqrt(sigma**2 - (w/inres)**2)
         x = (wave-w)/sigma_eff
-        f = np.exp( -0.5*(x)**2 )
-        flux[i] = np.trapz( f * spec, wave) / np.trapz(f, wave)
+        f = np.exp(-0.5 * x**2)
+        flux[i] = np.trapz(f * spec, wave) / np.trapz(f, wave)
     return flux
+
 
 def smooth(wave, spec, sigma, velocity=True, **kwargs):
     if velocity:
         return smooth_vel(wave, spec, sigma, **kwargs)
     else:
         return smooth_wave(wave, spec, sigma, **kwargs)
-

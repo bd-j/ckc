@@ -1,33 +1,41 @@
 import numpy as np
-import struct
-
-def read_binary_spec(filename, nw, nspec):
-    count = 0
-    spec = np.empty([nspec, nw])
-    with open(filename, 'rb') as f:
-        while count < nspec:
-                count += 1
-                for iw in range(nw):
-                    byte = f.read(4)
-                    spec[count-1, iw] = struct.unpack('f', byte)[0]
-    return spec
-
+import sys
+import h5py
 
 if __name__=="__main__":
+
+    fdat = h5py.File('../h5/ckc14_fullres.h5', "r")
     
-    wave = np.loadtxt('ckc14.lambda')
-    zlegend = np.loadtxt('zlegend.dat')
-    zlist = ['{0:06.4f}'.format(z) for z in zlegend]
-    logg = np.loadtxt('../BaSeL3.1/basel_logg.dat')
-    logt = np.loadtxt('../BaSeL3.1/basel_logt.dat')
+    wave = fdat['wavelengths'][:]
+    zlist = fdat['spectra'].keys()
+    logg = fdat['logg'][:]
+    logt = fdat['logt'][:]
     nspec = len(logg) * len(logt) #len(zlegend)
 
     z = zlist[3]
-    name = 'ckc14_z{0}.spectra.bin'.format(z)
-    spec = read_binary_spec(name, len(wave), nspec)
+    spec = fdat['spectra'][z][:]
     spec = spec.reshape(len(logg), len(logt), len(wave))
+    intspec = np.empty_like(spec)
+    
+    pdf = PdfPages('Tinterp.pdf')
+    # Temperature interpolation
+    for gind, g in enumerate(logg):
+        for tind, t in enumerate(logt):
+            tlo = max([tind-1, 0])
+            thi = min([tind+1, len(logt)-1])
+            dT = (logt[tind] - logt[tlo]) / (logt[thi] - logt[tlo])
+            intspec[gind, tind,:] = (1-dT) * spec[gind, tlo, :] + dT * spec[gind, thi, :]
+        c = ax.imshow(np.log(np.clip(intspec[gind, :, wmin:wmax], 0, 3)))
+        ax.set_xticks(winds)
+        ax.set_xticklabels(wlabels)
+        ax.set_title('logg={}'.format(g))
+        ax.colorbar(c)
+    sys.exit()
+    # logg interpolation
+    for gind, g in enumerate(logg):
+        for tind, t in enumerate(logt):
+            dG = (logg[gind] - logg[gind-1]) / (logg[gind+1] - logg[gind-1])
+            intspec[gind, tind,:] = (1-dG) * spec[gind-1, tind, :] + dG * spec[gind+1, tind, :]
 
-    gind = 18
-    for tind, t in enumerate(logt):
-        dT = (logt[tind] - logt[tind-1]) / (logt[tind+1] - logt[tind-1])
-        Tintspec[gind, tind,:] = (1-dT) * spec[gind, tind-1, :] + dT * spec[gind, tind+1, :]
+#    # logg z interpolation
+#    for iz, z 
