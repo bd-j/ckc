@@ -31,7 +31,13 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
 
 
 def spec_params(expanded=False, **extras):
-    """Get paramaters (Z, g, T) for the CKC library.
+    """Get parameters (Z, g, T) for the CKC library.
+
+    :param expanded:
+        If True, return a structured array of length (n_logg * n_logt
+        * n_Z) with three fields, 'Z, 'logg', and 'logt'.  This means
+        that each spectrum in the library has an entry in the
+        structured array that gives the parameters of that spectrum.
     """
     zlegend = np.loadtxt('{0}/data/zlegend.dat'.format(ckc_dir))
     logg = np.loadtxt('{0}/data/basel_logg.dat'.format(ckc_dir))
@@ -122,6 +128,10 @@ def downsample_onespec(wave, spec, outwave, outres,
 
 
 def read_binary_spec(filename, nw, nspec):
+    """Read a binary file with name ``filename`` containing ``nspec``
+    spectra each of length ``nw`` wavelength points and return an
+    array of shape (nspec, nw)
+    """
     count = 0
     spec = np.empty([nspec, nw])
     with open(filename, 'rb') as f:
@@ -134,6 +144,16 @@ def read_binary_spec(filename, nw, nspec):
 
 
 def binary_to_hdf(hname):
+    """Convert a set of binary files containing spectra into an hdf5
+    file containing those same spectra.  The binary files are assumed
+    to be in ``"{0}/bin/ckc14_z{1}.spectra.bin".format(ckc_dir, z) for
+    z given by the zlegend.dat file.
+
+    The output hdf5 file has datasets ``wavelengths``, ``logg``, and
+    ``logt``, and then the group ``spectra`` which has as members
+    the datasets ``z{}``, each of which is an array of shape (len(logg),
+    len(logt), nw) for that metallicity"
+    """
     import h5py
     wave = np.loadtxt('{0}/data/ckc14.lambda'.format(ckc_dir))
     nw = len(wave)
