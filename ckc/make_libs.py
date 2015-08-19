@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
     # account for intrinsic resolution of the CKC grid (10000) to get
     # a desired resolution of 2000
-    r = 1/np.sqrt((1./2000)**2 - (1./10000)**2)
+    r = 1/np.sqrt((1./2000)**2 - (1./4000)**2)
     irtf = {'R': r, 'wmin': 3000, 'wmax': 20000,
              'h5name': '../h5/ckc14_fullres.flat.h5',
              'outfile': 'ckc14_irtf.flat.h5'
