@@ -12,6 +12,13 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     this at lower resolution (suitable for photometry, ionizing flux,
     and dust emission calculations)
     """
+
+    if wlo < 1e3:
+        print("Warning!:  Are you sure the CKC grid has better than the desired "
+              "resolution {1} below {0} angstroms?".format(wlo, resolution))
+    if whi > 2e4:
+        print("Warning!:  Are you sure the CKC grid has better than the desired "
+              "resolution {1} above {0} angstroms?".format(whi, resolution))
     if velocity:
         lores = 100  # R
     else:
