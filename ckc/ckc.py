@@ -30,7 +30,8 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     return out, res
 
 
-def spec_params(expanded=False, **extras):
+def spec_params(expanded=False, zlegend=None, logg=None, logt=None,
+                **extras):
     """Get parameters (Z, g, T) for the CKC library.
 
     :param expanded:
@@ -39,9 +40,12 @@ def spec_params(expanded=False, **extras):
         that each spectrum in the library has an entry in the
         structured array that gives the parameters of that spectrum.
     """
-    zlegend = np.loadtxt('{0}/data/zlegend.dat'.format(ckc_dir))
-    logg = np.loadtxt('{0}/data/basel_logg.dat'.format(ckc_dir))
-    logt = np.loadtxt('{0}/data/basel_logt.dat'.format(ckc_dir))
+    if zlegend is None:
+        zlegend = np.loadtxt('{0}/data/zlegend.dat'.format(ckc_dir))
+    if logg is None:
+        logg = np.loadtxt('{0}/data/basel_logg.dat'.format(ckc_dir))
+    if logt is None:
+        logt = np.loadtxt('{0}/data/basel_logt.dat'.format(ckc_dir))
     if not expanded:
         return zlegend, logg, logt
     else:

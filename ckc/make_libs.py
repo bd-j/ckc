@@ -3,7 +3,6 @@ import ckc
 import numpy as np
 import h5py
 
-
 def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
              dirname='./', name='ckc14_new', **extras):
     """Make a new downsampled CKC library, with the desired resolution
@@ -76,14 +75,16 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
             f.flush()
 
 
-def flatten_h5(h5file):
+def flatten_h5(h5file, outfile=None):
     """Change the ``spectra`` group in the output from make_lib_byz to
     be a single dataset, with shape (nz*ng*nt, nwave).  This way the
     spectra match the ``parameters`` dataset line by line. This method
     creates a new file with the extension ``.flat.h5``
     """
+    if outfile is None:
+        outfile = h5file.replace('.h5','.flat.h5')
     with h5py.File(h5file, "r") as f:
-        with h5py.File(h5file.replace('.h5','.flat.h5'), "w") as newf:
+        with h5py.File(outfile, "w") as newf:
             f.copy("wavelengths", newf)
             f.copy("parameters", newf)
             newspec = []
@@ -93,11 +94,34 @@ def flatten_h5(h5file):
             newf.create_dataset('spectra', data=np.vstack(newspec))
 
 
-def make_deimos():
-    R, wmin, wmax = 5000, 4000, 11000
-    ckc.resample_ckc(R, wmin, wmax, velocity=False,
-                     outname='h5/ckc14_deimos.h5')
-
+def flatten_fullspec(h5fullspec, outfile=None):
+    """
+    :param h5fullspec:
+        Complete path to the CKC14 fullspec file.
+    :param outfile: (optional)
+        Complete path to the output file.  If not given the output
+        will be h5fullspec with '.flat.' inserted
+    """
+    if outfile is None:
+        outfile = h5fullspec.replace('.h5','.flat.h5')
+    with h5py.File(h5fullspec, "r") as full:
+        with h5py.File(outfile, "w") as newf:
+            ng, nt = len(full['logg']), len(full['logt'])
+            nw = len(full['wavelengths'])
+            newspec = []
+            zs = np.sort(full['spectra'].keys())
+            zlegend = [np.float(z[1:]) for z in zs]
+            # Get the full parameter list as a flat structured array,
+            # and throw it in the h5file
+            exparams = ckc.spec_params(expanded=True, zlegend=zlegend,
+                                       logt=full['logt'][:], logg=full['logg'][:])
+            p = newf.create_dataset("parameters", data=exparams)
+            # copy the wavelength array
+            full.copy("wavelengths", newf)
+            for z in zs:
+                n = np.squeeze(full['spectra'][z]).reshape(ng*nt, nw)
+                newspec.append(n)
+            newf.create_dataset('spectra', data=np.vstack(newspec))
 
 if __name__ == "__main__":
 
@@ -106,11 +130,15 @@ if __name__ == "__main__":
              'dirname': ckc.ckc_dir+'lores/manga_R2000/',
              'name': 'ckc14_manga'
              }
+    manga3 = {'R': 3145, 'wmin': 3500, 'wmax': 11000,
+             'dirname': ckc.ckc_dir+'lores/manga_R3000/',
+             'name': 'ckc14_manga'
+             }
     deimos = {'R': 5000, 'wmin': 4000, 'wmax': 11000,
              'dirname': ckc.ckc_dir+'lores/deimos/',
              'name': 'ckc14_deimos',
              'h5out': 'ckc14_deimos.h5'
              }
 
-    params = deimos
+    params = manga3
     make_lib_byz(**params)

@@ -4,36 +4,37 @@ import h5py
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as pl
 
-def test_interp_spsbasis():
+def test_interp_spsbasis(lib):
     """Test interpolation error by leaving one spectrum out of the
     model, computing the triagulation, and getting the spectrum for
     the parameters of the missing model.  Returns the ratio of the
     interpolated to the computed models.
     """
     from bsfh import sps_basis
-    sps = StarModel(lib = '')
+    sps = StarModel(lib=lib)
     libpars = sps._libparams
     specs = sps._spectra
     nmod = len(libpars)
     ratio = np.zeros(nmod, len(sps._wave))
     mask = np.ones(nmod, dtype=bool)
     for i in xrange(nmod):
-        par, spec = libpars[i], specs[i,:]
+        par, spec = libpars[i], specs[i, :]
         mask[:] = True
         mask[i] = False
         sps._libparams = libpars[mask]
-        sps._spectra = specs[mask,:]
+        sps._spectra = specs[mask, :]
         sps.triangulate()
         pd = {}
         for n in par.dtype.names:
             pd[n] = par[n]
         w, s, u = sps.get_star_spectrum(logarithmic=True, **pd)
-        ratio[i,:] = s/spec
+        ratio[i, :] = s/spec
     return ratio
         
-if __name__=="__main__":
-
-    fdat = h5py.File('../h5/ckc14_fullres.h5', "r")
+def test_interp_linear(filename='../h5/ckc14_fullres.h5'):
+    """Test interpolation error using linear interpolation.
+    """
+    fdat = h5py.File(filename, "r")
     
     wave = fdat['wavelengths'][:]
     zlist = fdat['spectra'].keys()
