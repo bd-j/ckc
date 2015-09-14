@@ -288,24 +288,32 @@ def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
 
 
 def smooth_wave(wave, spec, sigma, outwave=None,
-                inres=0, in_vel=False, **extras):
+                inres=0, in_vel=False, nsigma=10,
+                **extras):
     """Smooth a spectrum in wavelength space.  This is insanely slow,
     but general and correct (except for the treatment of the input
     resolution if it is velocity)
 
     :param sigma:
-        Desired reolution in wavelength units
+        Desired resolution (*not* FWHM) in wavelength units.
 
     :param inres:
         Resolution of the input, in either wavelength units or
-        lambda/dlambda (c/v)
+        lambda/dlambda (c/v).
 
     :param in_vel:
         If True, the input spectrum has been smoothed in velocity
-        space, and inres is in dlambda/lambda.
+        space, and ``inres`` is in dlambda/lambda.
+
+    :param nsigma: (default=10)
+        Number of sigma away from the output wavelength to consider in
+        the integral.  If less than zero, all wavelengths are used.
+        Setting this to some positive number decreses the scaling
+        constant in the O(N_out * N_in) algorithm used here.
     """
     if outwave is None:
         outwave = wave
+
     if inres <= 0:
         sigma_eff = sigma
     elif in_vel:
@@ -326,7 +334,15 @@ def smooth_wave(wave, spec, sigma, outwave=None,
 
     flux = np.zeros(len(outwave))
     for i, w in enumerate(outwave):
-        x = (wave-w)/sigma_eff
+        x = (wave - w) / sigma_eff
+        if nsigma > 0:
+            good = np.abs(x) < nsigma
+            x = x[good]
+            _spec = spec[good]
+            _wave = wave[good]
+        else:
+            _spec = spec
+            _wave = wave
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapz(f * spec, wave) / np.trapz(f, wave)
+        flux[i] = np.trapz(f * _spec, _wave) / np.trapz(f, _wave)
     return flux
