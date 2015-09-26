@@ -13,18 +13,13 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     and dust emission calculations)
     """
 
-    if wlo < 1.5e3:
-        print("Warning!:  Are you sure the CKC grid has better than the desired "
-              "resolution {1} below {0} angstroms?".format(wlo, resolution))
-    if whi > 1.1e4:
-        print("Warning!:  Are you sure the CKC grid has better than the desired "
-              "resolution {1} above {0} angstroms?".format(whi, resolution))
     if velocity:
         lores = 100  # R
     else:
         lores = 30  # AA
-    wave = [(absminwave, wlo), (wlo, whi), (whi, absmaxwave)]
-    res = [lores, resolution, lores]
+    wave = [(l,h) for l,h in zip(wlo, whi)]
+    wave = [(absminwave, wlo[0])] + wave + [(whi[-1], absmaxwave)]
+    res = [lores] + resolution + [lores]
 
     out = []
     for (wmin, wmax), r in zip(wave, res):
