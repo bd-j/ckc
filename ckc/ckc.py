@@ -17,6 +17,9 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
         lores = 100  # R
     else:
         lores = 30  # AA
+    resolution = [r for r in np.atleast_1d(resolution)]
+    wlo = np.atleast_1d(wlo)
+    whi = np.atleast_1d(whi)
     wave = [(l,h) for l,h in zip(wlo, whi)]
     wave = [(absminwave, wlo[0])] + wave + [(whi[-1], absmaxwave)]
     res = [lores] + resolution + [lores]

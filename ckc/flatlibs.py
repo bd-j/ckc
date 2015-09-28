@@ -1,8 +1,8 @@
 import sys, time
 import numpy as np
 import h5py
-from .ckc import downsample_onespec as downsample
-from .ckc import construct_outwave
+from ckc import downsample_onespec as downsample
+from ckc import construct_outwave
 
 
 def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
@@ -77,10 +77,10 @@ if __name__ == "__main__":
     
     # account for intrinsic resolution of the CKC grid (10000) to get
     # a desired resolution of 1000
-    r = 1/np.sqrt((1./1000)**2 - (1./np.array([10000, 4000])**2))
-    irtf = {'R': r, 'wmin': [6000, 11000], 'wmax': [10999, 30000],
+    r = 1/np.sqrt((1./240)**2 - (1./np.array([10000, 4000])**2))
+    irtf = {'R': r, 'wmin': [5000, 11000], 'wmax': [10999, 30000],
              'h5name': '../h5/ckc14_fullres.flat.h5',
-             'outfile': '../lores/wfirst/ckc14_wfirst_R1000.flat.h5',
+             'outfile': '../lores/wfirst/ckc14_wfirst_R240.flat.h5',
              'velocity': True
              }
     make_lib_flatfull(**irtf)
