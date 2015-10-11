@@ -5,7 +5,8 @@ ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/'
 
 
 def construct_outwave(resolution, wlo, whi, velocity=True,
-                      absminwave=100, absmaxwave=1e8, **extras):
+                      absminwave=100, absmaxwave=1e8, lores=None,
+                      **extras):
     """Given a spectral range of interest and a resolution in that
     range, construct wavelength vectors and resolution intervals that will
     cover this range at the desired reolution, but also ranges outside
@@ -14,9 +15,11 @@ def construct_outwave(resolution, wlo, whi, velocity=True,
     """
 
     if velocity:
-        lores = 100  # R
+        if lores is None:
+            lores = 100  # R
     else:
-        lores = 30  # AA
+        if lores is None:
+            lores = 30  # AA
     resolution = [r for r in np.atleast_1d(resolution)]
     wlo = np.atleast_1d(wlo)
     whi = np.atleast_1d(whi)
@@ -115,23 +118,24 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
 
 
 def downsample_onespec(wave, spec, outwave, outres,
-                       velocity=True, **kwargs):
+                       velocity=True, nsigma=10, **kwargs):
     outspec = []
     # loop over the output segments
     for owave, ores in zip(outwave, outres):
         wmin, wmax = owave.min(), owave.max()
         if velocity:
             sigma = 2.998e5 / ores  # in km/s
-            smin = wmin - 5 * wmin/ores
-            smax = wmax + 5 * wmax/ores
+            smin = wmin - nsigma * wmin/ores
+            smax = wmax + nsigma * wmax/ores
         else:
             sigma = ores  # in AA
-            smin = wmin - 5 * sigma
-            smax = wmax + 5 * sigma
+            smin = wmin - nsigma * sigma
+            smax = wmax + nsigma * sigma
         imin = np.argmin(np.abs(smin - wave))
         imax = np.argmin(np.abs(smax - wave))
         ospec = smooth(wave[imin:imax], spec[imin:imax], sigma,
-                       velocity=velocity, outwave=owave, **kwargs)
+                       velocity=velocity, outwave=owave, nsigma=nsigma,
+                       **kwargs)
         outspec += [ospec]
     return outspec
 
@@ -297,7 +301,8 @@ def smooth_wave(wave, spec, sigma, outwave=None,
 
     :param inres:
         Resolution of the input, in either wavelength units or
-        lambda/dlambda (c/v).
+        lambda/dlambda (c/v).  This is sigma units, not FWHM
+        (i.e. dlmabda=sigma_lambda)
 
     :param in_vel:
         If True, the input spectrum has been smoothed in velocity

@@ -5,9 +5,9 @@ from ckc import downsample_onespec as downsample
 from ckc import construct_outwave
 
 
-def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
+def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4], velocity=True,
                       h5name='../h5/ckc14_fullres.flat.h5',
-                      outfile='ckc14_new.flat.h5', **extras):
+                      outfile='ckc14_new.flat.h5', verbose=False, **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
     downsampled spectra.
@@ -30,7 +30,7 @@ def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
     h5fullflat = h5name
     # Get the output wavelength grid as segments
     outwave, outres = construct_outwave(R, wmin, wmax,
-                                        velocity=velocity)
+                                        velocity=velocity, **extras)
     wave = np.concatenate(outwave)
     with h5py.File(h5fullflat, "r") as full:
         # Full wavelength vector and number of spectra
@@ -57,7 +57,8 @@ def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
                 lores = downsample(fwave, s, outwave, outres,
                                    velocity=velocity)
                 news[i, :] = np.concatenate(lores)
-                #print("done one in {}s".format(time.time() - ts))
+                if verbose:
+                    print("done one in {}s".format(time.time() - ts))
                 # flush to disk so you can read the file and monitor
                 # progress in another python instance, and if
                 # something dies you don't totally lose the data
