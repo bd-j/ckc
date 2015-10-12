@@ -117,11 +117,17 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
     return np.array(newspec)
 
 
-def downsample_onespec(wave, spec, outwave, outres,
+def downsample_onespec(wave, spec, outwave, outres, inres=None,
                        velocity=True, nsigma=10, **kwargs):
+    """This is the basic spectrum downsampling function, which loops
+    over wavelength segments in a given spectrum with differnt
+    resolutions, getting things ready for each call to ``smooth``
+    """
     outspec = []
+    if inres is None:
+        inres = len(outwave) * [0]
     # loop over the output segments
-    for owave, ores in zip(outwave, outres):
+    for owave, ores, ires in zip(outwave, outres, inres):
         wmin, wmax = owave.min(), owave.max()
         if velocity:
             sigma = 2.998e5 / ores  # in km/s
@@ -133,7 +139,7 @@ def downsample_onespec(wave, spec, outwave, outres,
             smax = wmax + nsigma * sigma
         imin = np.argmin(np.abs(smin - wave))
         imax = np.argmin(np.abs(smax - wave))
-        ospec = smooth(wave[imin:imax], spec[imin:imax], sigma,
+        ospec = smooth(wave[imin:imax], spec[imin:imax], sigma, inres=ires,
                        velocity=velocity, outwave=owave, nsigma=nsigma,
                        **kwargs)
         outspec += [ospec]
