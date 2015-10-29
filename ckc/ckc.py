@@ -257,8 +257,8 @@ def smooth(wave, spec, sigma, velocity=True, **kwargs):
         return smooth_wave(wave, spec, sigma, **kwargs)
 
 
-def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
-               nsigma=10):
+def smooth_vel(wave, spec, sigma, outwave=None,
+               inres=0, nsigma=10, **extras):
     """Smooth a spectrum in velocity space.  This is insanely slow,
     but general and correct.
 
@@ -274,8 +274,8 @@ def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
     sigma_eff = np.sqrt(sigma**2 - inres**2)/2.998e5
     if outwave is None:
         outwave = wave
-    if sigma <= 0.0:
-        return np.interp(wave, outwave, flux)
+    if sigma_eff <= 0.0:
+        return np.interp(outwave, wave, spec)
 
     lnwave = np.log(wave)
     flux = np.zeros(len(outwave))
