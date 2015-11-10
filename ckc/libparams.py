@@ -29,10 +29,10 @@ irtf = {'R': outres, 'wmin': wmin, 'wmax': wmax,
         }
 
 # MILES
-wmin = [1500, 3500, 7500]
-wmax = [3500, 7500, 11000]
-outres = [50 / 2.35, 2.54 / 2.35, 50 / 2.35] # sigma in AA
-inres = [10000, 10000, 10000] # R of input in terms of lambda/FWHM
+wmin = [1500, 3500, 7500, 11000]
+wmax = [3500, 7500, 11000, 30000]
+outres = [50 / 2.35, 2.54 / 2.35, 50 / 2.35, 100 / 2.35] # sigma in AA
+inres = [10000, 10000, 10000, 2000] # R of input in terms of lambda/FWHM
 inres = [2.998e5 / (r*2.35)  for r in inres] # sigma of input in km/s
 
 miles = {'R': outres, 'wmin': wmin, 'wmax': wmax,
