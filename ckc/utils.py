@@ -68,12 +68,11 @@ def smooth_wave(wave, spec, sigma, outwave=None,
 
     :param inres:
         Resolution of the input, in either wavelength units or
-        lambda/dlambda (c/v).  This is sigma units, not FWHM
-        (i.e. dlmabda=sigma_lambda)
+        velocity.  This is sigma units, not FWHM
 
     :param in_vel:
         If True, the input spectrum has been smoothed in velocity
-        space, and ``inres`` is in dlambda/lambda.
+        space, and ``inres`` is in km/s (sigma not FWHM).
 
     :param nsigma: (default=10)
         Number of sigma away from the output wavelength to consider in
@@ -87,14 +86,15 @@ def smooth_wave(wave, spec, sigma, outwave=None,
     if inres <= 0:
         sigma_eff = sigma
     elif in_vel:
-        sigma_min = np.max(outwave)/inres
+        R_in = (2.998e5 / inres)
+        sigma_min = np.max(outwave) / R_in
         if sigma < sigma_min:
             raise ValueError("Desired wavelength sigma is lower "
                              "than the value possible for this input "
                              "spectrum ({0}).".format(sigma_min))
         # Make an approximate correction for the intrinsic wavelength
         # dependent dispersion.  This doesn't really work.
-        sigma_eff = np.sqrt(sigma**2 - (wave/inres)**2)
+        sigma_eff = np.sqrt(sigma**2 - (wave / R_in)**2)
     else:
         if sigma < inres:
             raise ValueError("Desired wavelength sigma is lower "

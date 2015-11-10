@@ -67,8 +67,7 @@ def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
 
 if __name__ == "__main__":
 
-    # example script.
-    
-    from ckc.speclibs import miles
-    
-    make_lib_flatfull(verbose=True, **miles)
+    import ckc.libparams
+    specparams = ckc.libparams.__dict__[sys.argv[1]]
+    print(sys.argv[1])
+    make_lib_flatfull(verbose=True, **specparams)
