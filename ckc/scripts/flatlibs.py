@@ -4,11 +4,25 @@ import h5py
 from ckc import downsample_onespec as downsample
 from ckc import construct_outwave
 
+from multiprocessing import Pool
+
+def onespec(inspec, inwave=None, outwave=None, outres=None,
+            verbose=False, **extras):
+    ts = time.time()
+    if inspec.max() < 1e-32:
+        return np.ones(len(np.concatenate(inwave))) * 1e-33
+
+    # Actually do the convolution
+    lores = downsample(inwave, inspec, outwave, outres, **extras)
+    if verbose:
+        print("done one in {}s".format(time.time() - ts))
+
+    return np.concatenate(lores)
 
 def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
                       h5name='../h5/ckc14_fullres.flat.h5',
-                      outfile='ckc14_new.flat.h5', verbose=False,
-                      test=False, **extras):
+                      outfile='ckc14_new.flat.h5', pool=None,
+                      verbose=False, test=False, **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
     downsampled spectra.
@@ -27,6 +41,10 @@ def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
         Full path to the output h5 filename.  Note that this will be a
         *flat* spectral file, suitable for use with StarBasis()
     """
+    try:
+        M = pool.imap
+    except:
+        M = map
 
     h5fullflat = h5name
     # Get the output wavelength grid as segments
@@ -46,6 +64,12 @@ def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
             # create an array to hold the new spectra.
             news = newf.create_dataset("spectra", data=np.ones([nspec, len(wave)]) * 1e-33)
             # loop over the old spectra
+            fullspec = np.array(full["spectra"][:])
+            result = list(M(lambda s: onespec(s, inwave=fwave, outwave=outwave, outres=outres, **extras),
+                          fullspec))
+            
+            return
+
             for i in xrange(nspec):
                 ts = time.time()
                 s = np.array(full["spectra"][i, :])
@@ -74,4 +98,4 @@ if __name__ == "__main__":
     import ckc.libparams
     specparams = ckc.libparams.__dict__[sys.argv[1]]
     print(sys.argv[1])
-    make_lib_flatfull(verbose=True, **specparams)
+    make_lib_flatfull(verbose=True, pool=Pool(4), **specparams)
