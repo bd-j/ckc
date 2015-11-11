@@ -245,6 +245,38 @@ def read_binary_spec(filename, nw, nspec):
                     spec[count-1, iw] = struct.unpack('f', byte)[0]
     return spec
 
+def flathdf_to_binary(hname):
+    """Convert a *flat* hdf5 spectral data file to the binary format
+    appropriate for FSPS.  This also writes a .lambda file and a
+    zlegend file.  A simple ```wc *.lambda``` will give the number of
+    wavelength points to specify in sps_vars.f90
+    """
+    outroot = ''.join(hname.split('.')[:-2])
+    import h5py
+    with h5py.File(hname, "r") as f:
+        w = f['wavelengths'][:]
+        p = f['parameters'][:]
+        zlegend = np.unique(p['Z'])
+        zlist = ['{0:06.4f}'.format(z) for z in zlegend]
+
+        # Write the wavelength file
+        wfile = open('{}.lambda'.format(outroot), 'w')
+        for wave in w:
+            wfile.write(wave, '\n')
+        wfile.close()
+
+        zfile = open('{}_zlegend.dat'.format(outroot), 'w')
+        for i, z in enumerate(zlist):
+            name = '{0}_z{1}.spectra.bin'.format(outroot, z)
+            outfile = open(name, 'wb')
+            thisz = p['Z'] == zlegend[i]
+            for s in f['spectra'][thisz, :]:
+                for flux in s:
+                    outfile.write(struct.pack('f', flux))
+            outfile.close()
+            zfile.write(zlegend[i], '\n')
+            zfile.close()
+
 
 def binary_to_hdf(hname):
     """Convert a set of binary files containing spectra into an hdf5
