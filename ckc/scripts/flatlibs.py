@@ -7,7 +7,8 @@ from ckc import construct_outwave
 
 def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
                       h5name='../h5/ckc14_fullres.flat.h5',
-                      outfile='ckc14_new.flat.h5', verbose=False, **extras):
+                      outfile='ckc14_new.flat.h5', verbose=False,
+                      test=False, **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
     downsampled spectra.
@@ -64,7 +65,10 @@ def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
                 # something dies you don't totally lose the data
                 if np.mod(i , np.int(nspec/10)) == 0:
                     newf.flush()
-
+                # only do one for testing purposes
+                if test:
+                    break
+                
 if __name__ == "__main__":
 
     import ckc.libparams

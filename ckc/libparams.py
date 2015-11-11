@@ -14,7 +14,10 @@ __all__ = ["irtf", "miles", "deimos", "manga"]
 # account for intrinsic resolution of the CKC grid (10000) to get
 # a desired resolution of R_target_FWHM
 
+# -------------------------
 #  IRTF
+# -------------------------
+
 wmin = [1500, 3650, 11000]
 wmax = [3650, 11000, 30000]
 outres = [100*2.35, 2000*2.35, 2000*2.35]  # R of output in terms of lambda/sigma
@@ -28,7 +31,10 @@ irtf = {'R': outres, 'wmin': wmin, 'wmax': wmax,
         'outfile': os.path.join(cdir, 'lores/irtf/ckc14_irtf.flat.h5'),             
         }
 
+# -------------------------
 # MILES
+# -------------------------
+
 wmin = [1500, 3500, 7500, 11000]
 wmax = [3500, 7500, 11000, 30000]
 outres = [50 / 2.35, 2.54 / 2.35, 50 / 2.35, 100 / 2.35] # sigma in AA
@@ -42,30 +48,35 @@ miles = {'R': outres, 'wmin': wmin, 'wmax': wmax,
         'outfile':os.path.join(cdir, 'lores/irtf/ckc14_miles.flat.h5'),             
         }
 
+# -------------------------
 # Deimos
+# -------------------------
+
 wmin = [100, 1500, 3650, 9900, 11000]
 wmax = [1500, 3650, 9900, 11000, 30000]
-r = [50, 30, 1.3 /2.35, 30, 100]  # sigma of output in AA
+outres = [50, 30, 1.3 /2.35, 30, 100]  # sigma of output in AA
 inres = [500, 10000, 10000, 10000, 2000]  # R of input in terms of lambda/FWHM
 inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
 
-deimos = {'R': r, 'wmin': wmin, 'wmax': wmax,
+deimos = {'R': outres, 'wmin': wmin, 'wmax': wmax,
           'inres':inres, 'in_vel': True, 'velocity': False,
           'absmaxwave': 3e4, 'lores': 100,
           'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/deimos_R1/ckc14_deimos_R1AA.flat.h5'),             
          }
 
+# -------------------------
 # MANGA
+# -------------------------
+
 wmin = [100, 1500, 3500, 11000, 30000]
 wmax = [1500, 3500, 11000, 30000, 100000000]
-r = [50 * 2.35, 100 * 2.35, 2400 * 2.35, 50 * 2.35, 25 * 2.35] # R of output in terms of sigma
+outres = [25 * 2.35, 50 * 2.35, 3000 * 2.35, 50 * 2.35, 25 * 2.35] # R of output in terms of lambda/sigma_lambda
 inres = [500, 10000, 10000, 2000, 50]  # R of input in terms of lambda/FWHM
 inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
 
-manga = {'R': r, 'wmin': wmin, 'wmax': wmax,
-          'inres':inres, 'in_vel': True, 'velocity': False,
-          'absmaxwave': 3e4, 'lores': 100,
+manga = {'R': outres, 'wmin': wmin, 'wmax': wmax,
+          'inres':inres, 'in_vel': True, 'velocity': True,
           'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/manga/ckc14_manga.flat.h5'),             
          }
