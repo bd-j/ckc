@@ -251,7 +251,7 @@ def flathdf_to_binary(hname):
     zlegend file.  A simple ```wc *.lambda``` will give the number of
     wavelength points to specify in sps_vars.f90
     """
-    outroot = ''.join(hname.split('.')[:-2])
+    outroot = '.'.join(hname.split('.')[:-2])
     import h5py
     with h5py.File(hname, "r") as f:
         w = f['wavelengths'][:]
@@ -262,7 +262,7 @@ def flathdf_to_binary(hname):
         # Write the wavelength file
         wfile = open('{}.lambda'.format(outroot), 'w')
         for wave in w:
-            wfile.write(wave, '\n')
+            wfile.write('{}\n'.format(wave))
         wfile.close()
 
         zfile = open('{}_zlegend.dat'.format(outroot), 'w')
