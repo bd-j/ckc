@@ -274,7 +274,7 @@ def flathdf_to_binary(hname):
                 for flux in s:
                     outfile.write(struct.pack('f', flux))
             outfile.close()
-            zfile.write(zlegend[i], '\n')
+            zfile.write('{}\n'.format(zlegend[i]))
             zfile.close()
 
 
