@@ -13,7 +13,7 @@ full_params = {'t': np.arange(4000, 5600, 100),
 
 def get_spectrum(param):
     pars = dict(zip(ykc.param_order, param))
-    w, s = ykc.convolve_lam_onestep(fwhm=1.0, wlo=4e3, whi=1.1e4, **pars)
+    w, s = ykc.convolve_lam_onestep(fwhm=1.0, wlo=3.5e3, whi=1.1e4, **pars)
     return w, s
 
 
@@ -29,7 +29,7 @@ pnames = [pname_map[p] for p in ykc.param_order]
 
 
 if __name__ == "__main__":
-    h5name = 'test.h5'
+    h5name = 'ykc_deimos.h5'
     paramlists = {'t': [5000],
                   'g': [1.0],
                   'feh': [0.0],
@@ -37,6 +37,8 @@ if __name__ == "__main__":
                   'nfe': [0, 0.3], 'cfe': [0, 0.3],
                   'vturb':[0.5, 3.5]}
 
+    paramlists = full_params
+    
     params = list(product(*[paramlists[p] for p in ykc.param_order]))
     nspec, npar = len(params), len(params[0])
     dt = np.dtype(zip(pnames, npar * [np.float]))
