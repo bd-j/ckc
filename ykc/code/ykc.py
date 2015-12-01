@@ -10,10 +10,9 @@ sigma_to_fwhm = 2.355
 hires_fstring = ("at12_teff={t:4.0f}_g={g:3.2f}_feh={feh:3.1f}_"
                  "afe={afe:3.1f}_cfe={cfe:3.1f}_nfe={nfe:3.1f}_"
                  "vturb={vturb:3.1f}.spec.gz")
-
 param_order = ['t', 'g', 'feh', 'afe', 'cfe', 'nfe', 'vturb']
     
-def getflux_hires(fstring=hires_fstring, **pars):
+def getflux_hires(fstring=hires_fstring, spectype='full', **pars):
     dirname = "../Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
     fn = dirname + fstring.format(**pars)
     print(fn)
@@ -24,7 +23,10 @@ def getflux_hires(fstring=hires_fstring, **pars):
     wave = np.array(fulldf[:,0])
     full_spec = np.array(fulldf[:,1]) # spectra
     full_cont = np.array(fulldf[:,2]) # continuum
-    #norm_flux = full_spec/full_cont # normalized spectra
+    if spectype == 'normalized':
+        full_spec /= full_cont # normalized spectra
+    elif spectype == 'continuum':
+        full_spec = full_cont        
     return full_spec, wave
 
 def convolve_lnlam(R=10000, wlo=3e3, whi=1e4, wpad=20.0, **pars):
