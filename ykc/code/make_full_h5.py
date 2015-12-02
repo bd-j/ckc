@@ -8,7 +8,7 @@ from multiprocessing import Pool
 hires_fstring = ("at12_teff={t:4.0f}_g={g:3.2f}_feh={feh:3.1f}_"
                  "afe={afe:3.1f}_cfe={cfe:3.1f}_nfe={nfe:3.1f}_"
                  "vturb={vturb:3.1f}.spec.gz")
-h5template = 'ykc_feh={:3.1f}.full.h5'
+h5template = '../h5/ykc_feh={:3.1f}.full.h5'
 full_params = {'t': np.arange(4000, 5600, 100),
                'g': [1.0, 1.5, 2.0],
                'feh': np.arange(-4, 1.0, 0.5),
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     ncpu = 4
     pool = Pool(ncpu)
 
-    zlist = full_params['feh'][:4]
+    zlist = full_params['feh']
     filenames = list(pool.map(specset, list(zlist)))
     print(filenames)
     pool.terminate()
