@@ -2,34 +2,11 @@ import os, sys, time
 from itertools import product
 import numpy as np
 import h5py
-import ykc
-
-full_params = {'t': np.arange(4000, 5600, 100),
-               'g': [1.0, 1.5, 2.0],
-               'feh': np.arange(-4, 1.0, 0.5),
-               'afe': [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8],
-               'nfe': [0, 0.3], 'cfe': [0, 0.3],
-               'vturb':[0.5, 3.5]}
+from ykc_data import full_params, param_order
 
 conv_pars = {'fwhm': 1.0, 'wlo': 3.5e3, 'whi':1.1e4}
-
-    
-def get_spectrum(param):
-    pars = dict(zip(ykc.param_order, param))
-    pars.update(conv_pars)
-    w, s = ykc.convolve_lam_onestep(**pars)
-    return w, s
-
-
-def param_map(ps):
-    """Logify Teff
-    """
-    ps[0] = np.log10(ps[0])
-    return tuple(ps)
-    
-
 pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe', 'nfe':'nfe', 'cfe':'cfe', 'vturb':'vturb'}
-pnames = [pname_map[p] for p in ykc.param_order]
+pnames = [pname_map[p] for p in param_order]
 
 
 def downsample_ykc_from_h5(zlist, pool=None):
@@ -86,28 +63,7 @@ def convolve_lam_one(whires, fhires, fwhm=1.0, wlo=4e3, whi=1e4, wpad=20.0, **pa
     print('final took {}s'.format(time.time() - ts))
     return outwave, flux
  
-def downsample_ykc_from_ascii(h5name):
-    paramlists = full_params
-    
-    params = list(product(*[paramlists[p] for p in ykc.param_order]))
-    nspec, npar = len(params), len(params[0])
-    dt = np.dtype(zip(pnames, npar * [np.float]))
-    pars = np.empty(nspec, dtype=dt)
-
-    with h5py.File(h5name, 'w') as f:
-        w, s = get_spectrum(params[0])
-        nwave = len(w)
-        spec = f.create_dataset('spectra', (nspec, nwave))
-        pset = f.create_dataset('parameters', data=pars)
-        wave = f.create_dataset('wavelengths', data=w)
-        for i, p in enumerate(params):
-            w, s = get_spectrum(p)
-            spec[i,:] = s
-            pset[i] = tuple(param_map(list(p)))
-
-        spec.attrs['fwhm'] = u'{} AA'.format(conv_pars['fwhm'])
-
 
 if __name__ == "__main__":
-    downsample_ykc_from_ascii('ykc_deimos.h5')
+    do_something
     

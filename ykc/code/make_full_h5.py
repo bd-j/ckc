@@ -1,20 +1,14 @@
+# This module exists to create HDF5 files of the full resolution ykc grid from
+# the ascii files.
+# The ascii read-in takes about 5s per spectrum.
+# The output is split into separate hdf5 files based on `feh`
+
 import os, sys, time
 from itertools import product
 import numpy as np
 import h5py
-import ykc
 from multiprocessing import Pool
-
-hires_fstring = ("at12_teff={t:4.0f}_g={g:3.2f}_feh={feh:3.1f}_"
-                 "afe={afe:3.1f}_cfe={cfe:3.1f}_nfe={nfe:3.1f}_"
-                 "vturb={vturb:3.1f}.spec.gz")
-h5template = '../h5/ykc_feh={:3.1f}.full.h5'
-full_params = {'t': np.arange(4000, 5600, 100),
-               'g': [1.0, 1.5, 2.0],
-               'feh': np.arange(-4, 1.0, 0.5),
-               'afe': [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8],
-               'nfe': [0, 0.3], 'cfe': [0, 0.3],
-               'vturb':[0.5, 3.5]}
+from ykc_data import full_params, param_order
 
 
 def param_map(ps):
@@ -24,11 +18,30 @@ def param_map(ps):
     return tuple(ps)
 
 pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe', 'nfe':'nfe', 'cfe':'cfe', 'vturb':'vturb'}
-pnames = [pname_map[p] for p in ykc.param_order]
+pnames = [pname_map[p] for p in param_order]
 
 
-def get_hires_spectrum(param, fstring=hires_fstring, spectype='full'):
-    pars = dict(zip(ykc.param_order, param))
+def get_hires_spectrum(param, fstring=hires_fstring):
+    """Read a hires spectrum from ascii files.
+
+    :param param:
+        An iterable of ykc parameters.
+
+    :param fstring:
+        Format string for the ascii filename
+
+    :returns full_spec:
+        The flux vector of high resolution spectrum, including both lines and
+        continuum.
+
+    :returns full_cont:
+        The flux vector of the continuum, which can be sued to make continuum
+        normalized spectra
+
+    :returns wave:
+        The wavelength vector of the high-resolution spectrum.
+    """
+    pars = dict(zip(param_order, param))
     dirname = "../Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
     fn = dirname + fstring.format(**pars)
     if os.path.exists(fn) is False:
@@ -41,11 +54,21 @@ def get_hires_spectrum(param, fstring=hires_fstring, spectype='full'):
     return full_spec, full_cont, wave
 
 
-def specset(z):
+def specset(z, h5template='../h5/ykc_feh={:3.1f}.full.h5'):
+    """Make an HDF5 file containing the full resolution spectrum (and
+    continuum) of all the ykc spectra with a given `feh` value.  This function
+    should have minimal kwargs, so it can be easily mapped.
+
+    :param z:
+        The value of `feh`.
+
+    :param h5template:
+        The oputput h5 name template
+    """
     h5name = h5template.format(z)
     paramlists = full_params.copy()
     paramlists['feh'] = [z]
-    params = list(product(*[paramlists[p] for p in ykc.param_order]))
+    params = list(product(*[paramlists[p] for p in param_order]))
     nspec, npar = len(params), len(params[0])
     dt = np.dtype(zip(pnames, npar * [np.float]))
     pars = np.empty(nspec, dtype=dt)
