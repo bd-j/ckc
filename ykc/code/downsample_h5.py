@@ -1,5 +1,5 @@
 import os, sys, time
-from itertools import product
+import json
 import numpy as np
 import h5py
 from ykc_data import sigma_to_fwhm
