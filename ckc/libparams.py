@@ -99,3 +99,22 @@ manga = {'R': outres, 'wmin': wmin, 'wmax': wmax,
           'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/manga/ckc14_manga.flat.h5'),             
          }
+
+# -------------------------
+# SPHEREx
+# -------------------------
+
+wmin = [100,  1500, 3650,  11000, 30000]
+wmax = [1500, 3650, 11000, 30000, 40e4]
+# R of output in terms of lambda/sigma
+outres = [50*2.35, 50*2.35, 50*2.35, 50*2.35, 50*2.35]
+# R of input in terms of lambda/sigma
+inres = [500*2.35, 10000*2.35, 10000*2.35, 2000*2.35, 50*2.35] 
+inres = [2.998e5 / r  for r in inres] # sigma of input in km/s
+
+spherex = {'R': outres, 'wmin': wmin, 'wmax': wmax,
+           'inres':inres, 'in_vel': True, 'velocity': True,
+           'absmaxwave': 4e5, 'lores': 100,
+           'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+           'outfile': os.path.join(cdir, 'lores/irtf/ckc14_.flat.h5'),             
+          }

@@ -2,68 +2,101 @@ import os, sys, time
 from itertools import product
 import numpy as np
 import h5py
-from ykc_data import full_params, param_order
+from ykc_data import sigma_to_fwhm
+from bsfh.utils import smoothing
 
-conv_pars = {'fwhm': 1.0, 'wlo': 3.5e3, 'whi':1.1e4}
-pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe', 'nfe':'nfe', 'cfe':'cfe', 'vturb':'vturb'}
-pnames = [pname_map[p] for p in param_order]
+# Note that smoothspec expects resolution to be defined in terms of sigma, not FWHM
+wfc3_g102 = {'name': 'wfc_ir_g102',
+             'resolution': 48.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
+             'dispersion': 24.5, 'disp_units': '\AA per pixel',
+             'oversample': 4.,
+             'fftsmooth': True, 'smoothtype': 'lambda',
+             'min_wave_smooth': 0.5e4, 'max_wave_msooth':1.3e4}
+
+wfc3_g141 = {'name': 'wfc3_ir_g141',
+             'resolution': 93.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
+             'dispersion': 46.5, 'disp_units': '\AA per pixel',
+             'oversample': 4.,
+             'fftsmooth': True, 'smoothtype': 'lambda',
+             'min_wave_smooth': 0.5e4, 'max_wave_smooth':2.0e4}
 
 
-def downsample_ykc_from_h5(zlist, pool=None):
-    """Unfinished
-    """
-    if pool is None:
-        M = map
-    else:
-        M = pool.map
+def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
+                            dispersion=1.0, oversample=2.0, **extras):
+    return np.arange(min_wave_smooth, max_wave_smooth, dispersion / oversample)       
 
-    hnames = [ for z in zlist]
-    lores = M(downsample_ykc_lam, hnames)
-    wave = lores[0][0]
-    params = np.concatenate([lo[2] for lo in lores])
-    spec = np.concatenate([lo[1] for lo in lores])
 
-    
-def downsample_ykc_lam(fullres_hname):
+def smooth_one(wave, spec, outwave, **conv_pars):
+    cp = conv_pars.copy()
+    res = cp.pop('resolution')
+    return smoothing.smoothspec(wave, spec, res,
+                                outwave=outwave, **cp)
+
+
+def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in
     that file, and treturn the result"""
+    
+    outwave = construct_grism_outwave(**conv_pars)
     with h5py.File(fullres_hname, 'r') as fullres:
         params = np.array(fullres['parameters'])
         whires = np.array(fullres['wavelengths'])
-
-        w, s = convolve_lam_one(whires, fullres['spectra'][0, :], **conv_pars)
-        flores = np.empty(len(params), len(s))
+        flores = np.empty([len(params), len(outwave)])
         for i, p in enumerate(params):
             fhires = fullres['spectra'][i, :]
-            w, s = convolve_lam_one(whires, fhires, **conv_pars)
+            s = smoothing.smoothspec(whires, fhires, resolution,
+                                     outwave=outwave, **conv_pars)
             flores[i, :] = s
 
-    return w, flores, params
+    return outwave, flores, params
 
+class function_wrapper(object):
 
-def convolve_lam_one(whires, fhires, fwhm=1.0, wlo=4e3, whi=1e4, wpad=20.0, **pars):
-    """Do convolution in lambda directly, assuming the wavelength dependent
-    sigma of the input library is unimportant.  This is often a bad assumption,
-    and is worse the higher the resolution of the output
-    """
-    sigma = fwhm / sigma_to_fwhm
-    wlim = wlo - wpad, whi + wpad
+    def __init__(self, function, function_kwargs):
+        self.function = function
+        self.kwargs = function_kwargs
 
-    # Interpolate to linear-lambda grid
-    good = (whires > wlim[0]) & (whires < wlim[1])
-    dw = np.diff(whires[good]).min()
-    whires_constdlam = np.arange(wlo, whi, dw/2)
-    fhires_constdlam = np.interp(whires_constdlam, whires[good], fhires[good])
+    def __call__(self, args):
+        return self.function(*args, **self.kwargs)
 
-    # now apply a 
-    ts = time.time()
-    outwave = np.arange(wlo, whi, sigma / 2.0)
-    flux = smooth_wave_fft(whires_constdlam, fhires_constdlam, outwave=outwave,
-                           wlo=wlo, whi=whi, sigma_out=sigma, nsigma=20)
-    print('final took {}s'.format(time.time() - ts))
-    return outwave, flux
- 
+#def downsample_with_pars(fname):
+#    return downsample_one_h5(fname, **wfc3_g141)
 
 if __name__ == "__main__":
-    do_something
+
+    conv_pars = wfc3_g141
+    htemplate = '../h5/ykc_feh={:3.1f}.full.h5'
+    zlist = [-0.5, -1.0]
+    hnames = [[htemplate.format(z)] for z in zlist]
+
+    downsample_with_pars = function_wrapper(downsample_one_h5, conv_pars)
     
+    pool = None
+    import multiprocessing
+    nproc = min([8, len(hnames)])
+    pool = multiprocessing.Pool(nproc)
+    if pool is not None:
+        M = pool.map
+    else:
+        M = map
+
+    results = M(downsample_with_pars, hnames)
+    wave = results[0][0]
+    spectra = np.vstack([r[1] for r in results])
+    params = np.concatenate([r[2] for r in results])
+
+    outname = '../ykc_{}.h5'.format(conv_pars['name'])
+    with h5py.File(outname, "w") as f:
+        wave = f.create_dataset('wavelengths', data=wave)
+        spectra = f.create_dataset('spectra', data=spectra)
+        par = f.create_dataset('parameters', data=params)
+        f.attrs = json.dumps(conv_pars)
+
+    try:
+        pool.close()
+    except:
+        pass
+    #start = time.time()
+    #w, spec, pars = downsample_one_h5(hnames[0], **wfc3_g141)
+    #dt = time.time() - start
+    #print('resampling took {}s'.format(dt))

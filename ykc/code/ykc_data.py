@@ -1,3 +1,4 @@
+import numpy as np
 
 __all__ = ["ckms", "sigma_to_fwhm", "Rykc",
            "full_params", "param_order", "hires_fstring"]
