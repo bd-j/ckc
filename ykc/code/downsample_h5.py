@@ -6,12 +6,12 @@ from ykc_data import sigma_to_fwhm
 from bsfh.utils import smoothing
 
 # Note that smoothspec expects resolution to be defined in terms of sigma, not FWHM
-wfc3_g102 = {'name': 'wfc_ir_g102',
+wfc3_g102 = {'name': 'wfc3_ir_g102',
              'resolution': 48.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
              'dispersion': 24.5, 'disp_units': '\AA per pixel',
              'oversample': 4.,
              'fftsmooth': True, 'smoothtype': 'lambda',
-             'min_wave_smooth': 0.5e4, 'max_wave_msooth':1.3e4}
+             'min_wave_smooth': 0.5e4, 'max_wave_smooth':1.3e4}
 
 wfc3_g141 = {'name': 'wfc3_ir_g141',
              'resolution': 93.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
@@ -64,9 +64,13 @@ class function_wrapper(object):
 
 if __name__ == "__main__":
 
-    conv_pars = wfc3_g141
+    if len(sys.argv) > 1:
+        grism = sys.argv[1]
+        conv_pars = globals()[grism]
+    else:
+        conv_pars = wfc3_g102
     htemplate = '../h5/ykc_feh={:3.1f}.full.h5'
-    zlist = [-0.5, -1.0]
+    zlist = [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5]
     hnames = [[htemplate.format(z)] for z in zlist]
 
     downsample_with_pars = function_wrapper(downsample_one_h5, conv_pars)
@@ -90,7 +94,8 @@ if __name__ == "__main__":
         wave = f.create_dataset('wavelengths', data=wave)
         spectra = f.create_dataset('spectra', data=spectra)
         par = f.create_dataset('parameters', data=params)
-        f.attrs = json.dumps(conv_pars)
+        for k, v in list(conv_pars.items()):
+            f.attrs[k] = json.dumps(v)
 
     try:
         pool.close()
