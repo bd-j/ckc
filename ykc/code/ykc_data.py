@@ -6,6 +6,7 @@ __all__ = ["ckms", "sigma_to_fwhm", "Rykc",
 ckms = 2.998e5
 sigma_to_fwhm = 2.355
 Rykc = 3e5
+wlims = (0.35e4, 2.5e4)
 
 full_params = {'t': np.arange(4000, 5600, 100),
                'g': [1.0, 1.5, 2.0],
