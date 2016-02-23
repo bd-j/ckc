@@ -8,7 +8,7 @@ from itertools import product
 import numpy as np
 import h5py
 from multiprocessing import Pool
-from ykc_data import full_params, param_order
+from ykc_data import full_params, param_order, hires_fstring
 
 
 def param_map(ps):

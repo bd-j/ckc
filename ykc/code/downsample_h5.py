@@ -1,4 +1,4 @@
-import os, sys, time
+import os, sys, time, gc
 import json
 import numpy as np
 import h5py
@@ -20,35 +20,51 @@ wfc3_g141 = {'name': 'wfc3_ir_g141',
              'fftsmooth': True, 'smoothtype': 'lambda',
              'min_wave_smooth': 0.5e4, 'max_wave_smooth':2.0e4}
 
+spherex = {'name': 'spherex',
+             'resolution': 50.0 * sigma_to_fwhm, 'res_units': '\AA sigma',
+             'logarithmic': True, 'oversample': 2.,
+             'fftsmooth': True, 'smoothtype': 'R',
+             'min_wave_smooth': 0.4e4, 'max_wave_smooth':2.5e4}
 
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
-                            dispersion=1.0, oversample=2.0, **extras):
-    return np.arange(min_wave_smooth, max_wave_smooth, dispersion / oversample)       
+                            dispersion=1.0, oversample=2.0,
+                            resolution=3e5, logarithmic=False,
+                            **extras):
+    if logarithmic:
+        dlnlam = 1.0/resolution/2/oversample  # critically sample the resolution
+        lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
+        #print(lnmin, lnmax, dlnlam, resolution, oversample)
+        out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
+    else:
+        out = np.arange(min_wave_smooth, max_wave_smooth, dispersion / oversample)
+    return out    
 
 
-def smooth_one(wave, spec, outwave, **conv_pars):
-    cp = conv_pars.copy()
-    res = cp.pop('resolution')
-    return smoothing.smoothspec(wave, spec, res,
-                                outwave=outwave, **cp)
+#def smooth_one(wave, spec, outwave, **conv_pars):
+#    cp = conv_pars.copy()
+#    res = cp.pop('resolution')
+#    return smoothing.smoothspec(wave, spec, res,
+#                                outwave=outwave, **cp)
 
 
 def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in
     that file, and treturn the result"""
     
-    outwave = construct_grism_outwave(**conv_pars)
+    outwave = construct_grism_outwave(resolution=resolution, **conv_pars)
+    #print(resolution, len(outwave), conv_pars['smoothtype'])
     with h5py.File(fullres_hname, 'r') as fullres:
         params = np.array(fullres['parameters'])
         whires = np.array(fullres['wavelengths'])
-        flores = np.empty([len(params), len(outwave)])
+        flores = np.zeros([len(params), len(outwave)])
         for i, p in enumerate(params):
             fhires = fullres['spectra'][i, :]
             s = smoothing.smoothspec(whires, fhires, resolution,
                                      outwave=outwave, **conv_pars)
             flores[i, :] = s
-
+    gc.collect()
     return outwave, flores, params
+
 
 class function_wrapper(object):
 
@@ -59,8 +75,6 @@ class function_wrapper(object):
     def __call__(self, args):
         return self.function(*args, **self.kwargs)
 
-#def downsample_with_pars(fname):
-#    return downsample_one_h5(fname, **wfc3_g141)
 
 if __name__ == "__main__":
 
