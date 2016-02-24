@@ -1,5 +1,5 @@
 import os
-import ckc
+import utils
 import numpy as np
 import h5py
 
@@ -12,11 +12,11 @@ def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
 
     This is deprecated in favor of make_lib_byz below
     """
-    downsample = ckc.read_and_downsample_spectra
+    downsample = utils.read_and_downsample_spectra
     
     if not os.path.exists(dirname):
         os.makedirs(dirname)
-    outwave, outres = ckc.construct_outwave(R, wmin, wmax,
+    outwave, outres = utils.construct_outwave(R, wmin, wmax,
                                             velocity=velocity)
     wave = np.concatenate(outwave)
     spectra = downsample(outwave, outres, velocity=velocity,
@@ -26,7 +26,7 @@ def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
     with open(dirname+'{0}.lambda'.format(name), 'w') as f:
         for w in np.concatenate(outwave):
             f.write('{0:15.4f}\n'.format(w))
-    params = ckc.spec_params(expanded=True)
+    params = utils.spec_params(expanded=True)
     with h5py.File(dirname + '{0}.h5'.format(name), 'x') as f:
         dspec = f.create_dataset("spectra", data=spectra)
         dwave = f.create_dataset("wavelengths", data=wave)
@@ -41,7 +41,7 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
     (one for each metallicity) and a wavelength file, suitable for use
     in FSPS.  It also makes an hdf5 file with the downsampled spectra.
     """
-    downsample = ckc.read_and_downsample_onez
+    downsample = utils.read_and_downsample_onez
 
     # set up output names, directories, and files
     if not os.path.exists(dirname):
@@ -52,7 +52,7 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
         spgr = f.create_group("spectra")
 
         # Get the output wavelength grid, write to hdf5 and a file
-        outwave, outres = ckc.construct_outwave(R, wmin, wmax,
+        outwave, outres = utils.construct_outwave(R, wmin, wmax,
                                                 velocity=velocity)
         wave = np.concatenate(outwave)
         dwave = f.create_dataset("wavelengths", data=wave)
@@ -61,9 +61,9 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
                 wf.write('{0:15.4f}\n'.format(w))
 
         # Parameters
-        params = ckc.spec_params(expanded=True)
+        params = utils.spec_params(expanded=True)
         dpar =  f.create_dataset("parameters", data=params)
-        zlegend, logg, logt = ckc.spec_params()
+        zlegend, logg, logt = utils.spec_params()
 
         # Get the spectra for each z binary file
         zlist = ['{0:06.4f}'.format(z) for z in zlegend]
@@ -75,7 +75,7 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
             f.flush()
 
 def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
-                      h5name='../h5/ckc14_fullres.flat.h5',
+                      h5name='data/h5/ckc14_fullres.flat.h5',
                       outfile='ckc14_new.flat.h5', **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
@@ -97,9 +97,9 @@ def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
     """
 
     h5fullflat = h5name
-    from ckc import downsample_onespec as downsample
+    from utils import downsample_onespec as downsample
     # Get the output wavelength grid as segments
-    outwave, outres = ckc.construct_outwave(R, wmin, wmax,
+    outwave, outres = utils.construct_outwave(R, wmin, wmax,
                                             velocity=velocity)
     wave = np.concatenate(outwave)
     with h5py.File(h5fullflat, "r") as full:
@@ -171,7 +171,7 @@ def flatten_fullspec(h5fullspec, outfile=None):
             zlegend = [np.float(z[1:]) for z in zs]
             # Get the full parameter list as a flat structured array,
             # and throw it in the h5file
-            exparams = ckc.spec_params(expanded=True, zlegend=zlegend,
+            exparams = utils.spec_params(expanded=True, zlegend=zlegend,
                                        logt=full['logt'][:], logg=full['logg'][:])
             p = newf.create_dataset("parameters", data=exparams)
             # copy the wavelength array
@@ -185,15 +185,15 @@ if __name__ == "__main__":
 
 
     manga = {'R': 2000, 'wmin': 3500, 'wmax': 11000,
-             'dirname': ckc.ckc_dir+'lores/manga_R2000/',
+             'dirname': utils.ckc_dir+'../lores/manga_R2000/',
              'name': 'ckc14_manga'
              }
     manga3 = {'R': 3145, 'wmin': 3500, 'wmax': 11000,
-             'dirname': ckc.ckc_dir+'lores/manga_R3000/',
+             'dirname': utils.ckc_dir+'../lores/manga_R3000/',
              'name': 'ckc14_manga'
              }
     deimos = {'R': 5000, 'wmin': 4000, 'wmax': 11000,
-             'dirname': ckc.ckc_dir+'lores/deimos/',
+             'dirname': utils.ckc_dir+'../lores/deimos/',
              'name': 'ckc14_deimos',
              'h5out': 'ckc14_deimos.h5'
              }
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     # a desired resolution of 2000
     r = 1/np.sqrt((1./2000)**2 - (1./4000)**2)
     irtf = {'R': r, 'wmin': 3000, 'wmax': 20000,
-             'h5name': '../h5/ckc14_fullres.flat.h5',
-             'outfile': 'ckc14_irtf.flat.h5'
+             'h5name': utils.ckc_dir+'data/h5/ckc14_fullres.flat.h5',
+             'outfile': utils.ckc_dir+'../lores/ckc14_irtf.flat.h5'
              }
     make_lib_flatfull(**irtf)
 

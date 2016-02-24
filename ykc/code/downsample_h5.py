@@ -1,35 +1,20 @@
-import os, sys, time, gc
+import sys, time, gc
 import json
 import numpy as np
 import h5py
 from ykc_data import sigma_to_fwhm
 from bsfh.utils import smoothing
 
-# Note that smoothspec expects resolution to be defined in terms of sigma, not FWHM
-wfc3_g102 = {'name': 'wfc3_ir_g102',
-             'resolution': 48.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
-             'dispersion': 24.5, 'disp_units': '\AA per pixel',
-             'oversample': 4.,
-             'fftsmooth': True, 'smoothtype': 'lambda',
-             'min_wave_smooth': 0.5e4, 'max_wave_smooth':1.3e4}
+from libparams import *
 
-wfc3_g141 = {'name': 'wfc3_ir_g141',
-             'resolution': 93.0 / sigma_to_fwhm, 'res_units': '\AA sigma',
-             'dispersion': 46.5, 'disp_units': '\AA per pixel',
-             'oversample': 4.,
-             'fftsmooth': True, 'smoothtype': 'lambda',
-             'min_wave_smooth': 0.5e4, 'max_wave_smooth':2.0e4}
-
-spherex = {'name': 'spherex',
-             'resolution': 50.0 * sigma_to_fwhm, 'res_units': '\AA sigma',
-             'logarithmic': True, 'oversample': 2.,
-             'fftsmooth': True, 'smoothtype': 'R',
-             'min_wave_smooth': 0.4e4, 'max_wave_smooth':2.5e4}
-
+    
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
                             dispersion=1.0, oversample=2.0,
                             resolution=3e5, logarithmic=False,
                             **extras):
+    """Given parameters describing the output spectrum, generate a wavelength
+    grid that properly samples the resolution.
+    """
     if logarithmic:
         dlnlam = 1.0/resolution/2/oversample  # critically sample the resolution
         lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
@@ -40,17 +25,10 @@ def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
     return out    
 
 
-#def smooth_one(wave, spec, outwave, **conv_pars):
-#    cp = conv_pars.copy()
-#    res = cp.pop('resolution')
-#    return smoothing.smoothspec(wave, spec, res,
-#                                outwave=outwave, **cp)
-
-
 def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in
-    that file, and treturn the result"""
-    
+    that file, and return the result as ndarrays
+    """
     outwave = construct_grism_outwave(resolution=resolution, **conv_pars)
     #print(resolution, len(outwave), conv_pars['smoothtype'])
     with h5py.File(fullres_hname, 'r') as fullres:
@@ -67,7 +45,8 @@ def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
 
 
 class function_wrapper(object):
-
+    """A hack to make the downsampling function pickleable for MPI.
+    """
     def __init__(self, function, function_kwargs):
         self.function = function
         self.kwargs = function_kwargs

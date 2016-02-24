@@ -1,12 +1,12 @@
 import sys, time
 import numpy as np
 import h5py
-from ckc import downsample_onespec as downsample
-from ckc import construct_outwave
+from ckc.utils import downsample_onespec as downsample
+from ckc.utils import construct_outwave, ckc_dir
 
 
 def make_lib_flatfull(R=[1000], wmin=[1e3], wmax=[1e4],
-                      h5name='../h5/ckc14_fullres.flat.h5',
+                      h5name=ckc_dir+'/h5/ckc14_fullres.flat.h5',
                       outfile='ckc14_new.flat.h5', verbose=False,
                       test=False, **extras):
     """Make a new downsampled CKC library, with the desired resolution

@@ -29,7 +29,7 @@ inres = [2.998e5 / r  for r in inres] # sigma of input in km/s
 irtf = {'R': outres, 'wmin': wmin, 'wmax': wmax,
         'inres':inres, 'in_vel': True, 'velocity': True,
         'absmaxwave': 3e4, 'lores': 100,
-        'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+        'h5name': os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
         'outfile': os.path.join(cdir, 'lores/irtf/ckc14_irtf.flat.h5'),             
         }
 
@@ -46,7 +46,7 @@ inres = [2.998e5 / (r*2.35)  for r in inres] # sigma of input in km/s
 miles = {'R': outres, 'wmin': wmin, 'wmax': wmax,
         'inres':inres, 'in_vel': True, 'velocity': False,
         'absmaxwave': 3e4, 'lores': 100,
-        'h5name':os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+        'h5name':os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
         'outfile':os.path.join(cdir, 'lores/irtf/ckc14_miles.flat.h5'),             
         }
 
@@ -63,7 +63,7 @@ inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
 deimos = {'R': outres, 'wmin': wmin, 'wmax': wmax,
           'inres':inres, 'in_vel': True, 'velocity': False,
           'absmaxwave': 3e4, 'lores': 100,
-          'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+          'h5name': os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/deimos_R1/ckc14_deimos_R1AA.flat.h5'),             
          }
 
@@ -80,7 +80,7 @@ inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
 legac = {'R': outres, 'wmin': wmin, 'wmax': wmax,
           'inres':inres, 'in_vel': True, 'velocity': False,
           'absmaxwave': 3e4, 'lores': 100,
-          'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+          'h5name': os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/ckc14_legac.flat.h5'),             
          }
 
@@ -96,7 +96,7 @@ inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
 
 manga = {'R': outres, 'wmin': wmin, 'wmax': wmax,
           'inres':inres, 'in_vel': True, 'velocity': True,
-          'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+          'h5name': os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
           'outfile': os.path.join(cdir, 'lores/manga/ckc14_manga.flat.h5'),             
          }
 
@@ -115,6 +115,6 @@ inres = [2.998e5 / r  for r in inres] # sigma of input in km/s
 spherex = {'R': outres, 'wmin': wmin, 'wmax': wmax,
            'inres':inres, 'in_vel': True, 'velocity': True,
            'absmaxwave': 4e5, 'lores': 100,
-           'h5name': os.path.join(cdir, 'h5/ckc14_fullres.flat.h5'),
+           'h5name': os.path.join(cdir, 'data/h5/ckc14_fullres.flat.h5'),
            'outfile': os.path.join(cdir, 'lores/irtf/ckc14_.flat.h5'),             
           }
