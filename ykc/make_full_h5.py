@@ -42,7 +42,7 @@ def get_hires_spectrum(param, fstring=hires_fstring):
         The wavelength vector of the high-resolution spectrum.
     """
     pars = dict(zip(param_order, param))
-    dirname = "../Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
+    dirname = "data/Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
     fn = dirname + fstring.format(**pars)
     if os.path.exists(fn) is False:
         print('did not find {}'.format(fn))
@@ -54,7 +54,7 @@ def get_hires_spectrum(param, fstring=hires_fstring):
     return full_spec, full_cont, wave
 
 
-def specset(z, h5template='../h5/ykc_feh={:3.1f}.full.h5'):
+def specset(z, h5template='h5/ykc_feh={:3.1f}.full.h5'):
     """Make an HDF5 file containing the full resolution spectrum (and
     continuum) of all the ykc spectra with a given `feh` value.  This function
     should have minimal kwargs, so it can be easily mapped.

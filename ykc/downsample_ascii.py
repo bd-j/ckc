@@ -75,7 +75,7 @@ def getflux_hires(fstring=hires_fstring, spectype='full', **pars):
     :returns wave:
         The wavelength vector of the high-resolution spectrum.
     """
-    dirname = "../Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
+    dirname = "data/Plan_Dan_Large_Grid/Sync_Spectra_All_Vt={:3.1f}/".format(pars['vturb'])
     fn = dirname + fstring.format(**pars)
     print(fn)
     if os.path.exists(fn) is False:

@@ -62,7 +62,7 @@ if __name__ == "__main__":
         conv_pars = globals()[grism]
     else:
         conv_pars = wfc3_g102
-    htemplate = '../h5/ykc_feh={:3.1f}.full.h5'
+    htemplate = 'h5/ykc_feh={:3.1f}.full.h5'
     zlist = [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5]
     hnames = [[htemplate.format(z)] for z in zlist]
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     spectra = np.vstack([r[1] for r in results])
     params = np.concatenate([r[2] for r in results])
 
-    outname = '../ykc_{}.h5'.format(conv_pars['name'])
+    outname = 'lores/ykc_{}.h5'.format(conv_pars['name'])
     with h5py.File(outname, "w") as f:
         wave = f.create_dataset('wavelengths', data=wave)
         spectra = f.create_dataset('spectra', data=spectra)
