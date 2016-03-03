@@ -28,4 +28,4 @@ R500 = {'name': 'R500',
         'resolution': 500.0 * sigma_to_fwhm, 'res_units': '\AA sigma',
         'logarithmic': True, 'oversample': 2.,
         'fftsmooth': True, 'smoothtype': 'R',
-        'min_wave_smooth': 0.4e4, 'max_wave_smooth':2.5e4}
+        'min_wave_smooth': 0.35e4, 'max_wave_smooth':2.5e4}

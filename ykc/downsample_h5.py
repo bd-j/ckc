@@ -7,7 +7,9 @@ from bsfh.utils import smoothing
 
 from libparams import *
 
-    
+__all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
+
+
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
                             dispersion=1.0, oversample=2.0,
                             resolution=3e5, logarithmic=False,
@@ -55,23 +57,13 @@ class function_wrapper(object):
         return self.function(*args, **self.kwargs)
 
 
-if __name__ == "__main__":
-
-    if len(sys.argv) > 1:
-        grism = sys.argv[1]
-        conv_pars = globals()[grism]
-    else:
-        conv_pars = wfc3_g102
+def downsample_all_h5(conv_pars, pool=None):
     htemplate = 'h5/ykc_feh={:3.1f}.full.h5'
     zlist = [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5]
     hnames = [[htemplate.format(z)] for z in zlist]
 
     downsample_with_pars = function_wrapper(downsample_one_h5, conv_pars)
     
-    pool = None
-    import multiprocessing
-    nproc = min([8, len(hnames)])
-    pool = multiprocessing.Pool(nproc)
     if pool is not None:
         M = pool.map
     else:
@@ -90,11 +82,23 @@ if __name__ == "__main__":
         for k, v in list(conv_pars.items()):
             f.attrs[k] = json.dumps(v)
 
+
+if __name__ == "__main__":
+
+    if len(sys.argv) > 1:
+        grism = sys.argv[1]
+        conv_pars = globals()[grism]
+    else:
+        conv_pars = wfc3_g102
+
+    pool = None
+    import multiprocessing
+    nproc = min([8, len(hnames)])
+    pool = multiprocessing.Pool(nproc)
+    downsample_all_h5(conv_pars, pool=pool)
     try:
         pool.close()
     except:
         pass
-    #start = time.time()
-    #w, spec, pars = downsample_one_h5(hnames[0], **wfc3_g141)
-    #dt = time.time() - start
-    #print('resampling took {}s'.format(dt))
+
+
