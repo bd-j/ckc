@@ -7,9 +7,10 @@ from bsfh.utils import smoothing
 
 from libparams import *
 
-h5dir = '/Users/bjohnson/Dropboxes/Dropbox (ConroyAstro)/thePayne/ykc_grid/'
 
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
+
+h5dir_default = '/Users/bjohnson/Dropboxes/Dropbox (ConroyAstro)/thePayne/ykc_grid/'
 
 
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
@@ -60,7 +61,7 @@ class function_wrapper(object):
 
 
 def downsample_all_h5(conv_pars, pool=None):
-    h5dir = conv_pars.get('h5dir', h5dir)
+    h5dir = conv_pars.get('h5dir', h5dir_default)
     htemplate = h5dir + '/ykc_feh={:3.1f}.full.h5'
     zlist = [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5]
     hnames = [[htemplate.format(z)] for z in zlist]
