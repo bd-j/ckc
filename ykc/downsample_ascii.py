@@ -9,6 +9,8 @@ from bsfh.utils import smoothing
 from ykc_data import ckms, sigma_to_fwhm, Rykc, hires_fstring
 from ykc_data import full_params, param_order
 
+__all__ = ["downsample_ykc_from_ascii", "getflux_hires"]
+
 pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe', 'nfe':'nfe', 'cfe':'cfe', 'vturb':'vturb'}
 pnames = [pname_map[p] for p in param_order]
 conv_pars = {'fwhm': 1.0, 'wlo': 3.5e3, 'whi':1.1e4}
@@ -57,7 +59,14 @@ def param_map(ps):
 
 def getflux_hires(fstring=hires_fstring, spectype='full', **pars):
     """Read a hires spectrum from ascii files.  The parameters are given as a
-    set of keyword arguments to this function.
+    set of keyword arguments to this function.  They are
+    * t - temperature
+    * g - logg
+    * feh - [Fe/H]
+    * afe  - [alpha/Fe]
+    * cfe - 
+    * nfe - 
+    * vturb - 
 
     :param fstring:
         Format string for the ascii filename

@@ -7,6 +7,8 @@ from bsfh.utils import smoothing
 
 from libparams import *
 
+h5dir = '/Users/bjohnson/Dropboxes/Dropbox (ConroyAstro)/thePayne/ykc_grid/'
+
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
 
 
@@ -58,7 +60,8 @@ class function_wrapper(object):
 
 
 def downsample_all_h5(conv_pars, pool=None):
-    htemplate = 'h5/ykc_feh={:3.1f}.full.h5'
+    h5dir = conv_pars.get('h5dir', h5dir)
+    htemplate = h5dir + '/ykc_feh={:3.1f}.full.h5'
     zlist = [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5]
     hnames = [[htemplate.format(z)] for z in zlist]
 
@@ -74,7 +77,8 @@ def downsample_all_h5(conv_pars, pool=None):
     spectra = np.vstack([r[1] for r in results])
     params = np.concatenate([r[2] for r in results])
 
-    outname = 'lores/ykc_{}.h5'.format(conv_pars['name'])
+    outdir = conv_pars.get('outdir', 'lores')
+    outname = '{}/ykc_{}.h5'.format(outdir, conv_pars['name'])
     with h5py.File(outname, "w") as f:
         wave = f.create_dataset('wavelengths', data=wave)
         spectra = f.create_dataset('spectra', data=spectra)
