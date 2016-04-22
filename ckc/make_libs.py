@@ -3,6 +3,9 @@ import utils
 import numpy as np
 import h5py
 
+__all__ = ["make_lib", "make_lib_byz", "make_lib_flatfull",
+           "flatten_h5", "flatten_fullspec"]
+
 def make_lib(R=1000, wmin=1e3, wmax=1e4, velocity=True,
              dirname='./', name='ckc14_new', **extras):
     """Make a new downsampled CKC library, with the desired resolution
@@ -75,7 +78,7 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
             f.flush()
 
 def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
-                      h5name='data/h5/ckc14_fullres.flat.h5',
+                      h5name='data/h5/ckc14_fsps.flat.h5',
                       outfile='ckc14_new.flat.h5', **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
@@ -155,7 +158,7 @@ def flatten_h5(h5file, outfile=None):
 def flatten_fullspec(h5fullspec, outfile=None):
     """
     :param h5fullspec:
-        Complete path to the CKC14 fullspec file.
+        Complete path to the CKC14 FSPS resolution h5 file.
     :param outfile: (optional)
         Complete path to the output file.  If not given the output
         will be h5fullspec with '.flat.' inserted
@@ -202,7 +205,7 @@ if __name__ == "__main__":
     # a desired resolution of 2000
     r = 1/np.sqrt((1./2000)**2 - (1./4000)**2)
     irtf = {'R': r, 'wmin': 3000, 'wmax': 20000,
-             'h5name': utils.ckc_dir+'data/h5/ckc14_fullres.flat.h5',
+             'h5name': utils.ckc_dir+'data/h5/ckc14_fsps.flat.h5',
              'outfile': utils.ckc_dir+'../lores/ckc14_irtf.flat.h5'
              }
     make_lib_flatfull(**irtf)
