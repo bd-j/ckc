@@ -1,120 +1,30 @@
-import os
-import ckc
-cdir = os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]
+import numpy as np
 
-__all__ = ["irtf", "miles", "deimos", "manga"]
 
-# The CKC resolution intervals are
-# R = 500,   100   < lambda < 1500
-# R = 10000, 1500  < lambda < 11000
-# R = 2000,  11000 < lambda < 30000
-# R = 50,   30000 < lambda < 100000000
-# where R is defined in terms of FWHM
+__all__ = ["sigma_to_fwhm", "intrinsic_params", "R10K", "R500"]
 
-# account for intrinsic resolution of the CKC grid (10000) to get
-# a desired resolution of R_target_FWHM
+ckms = 2.998e5
+sigma_to_fwhm = 2.355
+Rckc = 1e5 # in FWHM.  The wavelength spacing is twice this
+wlims_ckc = (900, 40e4) # anstroms
 
-# -------------------------
-#  IRTF
-# -------------------------
+# Note that smoothspec expects resolution to be defined in terms of sigma, not FWHM
 
-wmin = [100,  1500, 3650,  11000, 30000]
-wmax = [1500, 3650, 11000, 30000, 40e4]
-# R of output in terms of lambda/sigma
-outres = [50*2.35, 100*2.35, 2000*2.35, 2000*2.35, 50*2.35]
-# R of input in terms of lambda/sigma
-inres = [500*2.35, 10000*2.35, 10000*2.35, 2000*2.35, 50*2.35] 
-inres = [2.998e5 / r  for r in inres] # sigma of input in km/s
+intrinsic_params = {'name': 'intrinsic', 'version': 'CKC v1.2',
+                    'resolution': 1e5, 'res_units': '\lambda/FWHM_\lambda',
+                    'min_wave_smooth': 900, 'max_wave_smooth':40e4}
 
-irtf = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-        'inres':inres, 'in_vel': True, 'velocity': True,
-        'absmaxwave': 3e4, 'lores': 100,
-        'h5name': os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-        'outfile': os.path.join(cdir, 'lores/irtf/ckc14_irtf.flat.h5'),             
-        }
+# Account for intrinsic resolution
+rfwhm = 1/np.sqrt(1/1e4**2 - 1/Rckc**2)
+R10K = {'name': 'R10K',
+        'resolution': rfwhm * sigma_to_fwhm, 'res_units': '\lambda/\sigma_\lambda',
+        'logarithmic': True, 'oversample': 2.,
+        'fftsmooth': True, 'smoothtype': 'R',
+        'min_wave_smooth': 0.35e4, 'max_wave_smooth':3e4}
 
-# -------------------------
-# MILES
-# -------------------------
-
-wmin = [1500, 3500, 7500, 11000]
-wmax = [3500, 7500, 11000, 30000]
-outres = [50 / 2.35, 2.54 / 2.35, 50 / 2.35, 100 / 2.35] # sigma in AA
-inres = [10000, 10000, 10000, 2000] # R of input in terms of lambda/FWHM
-inres = [2.998e5 / (r*2.35)  for r in inres] # sigma of input in km/s
-
-miles = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-        'inres':inres, 'in_vel': True, 'velocity': False,
-        'absmaxwave': 3e4, 'lores': 100,
-        'h5name':os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-        'outfile':os.path.join(cdir, 'lores/irtf/ckc14_miles.flat.h5'),             
-        }
-
-# -------------------------
-# Deimos
-# -------------------------
-
-wmin = [100, 1500, 3650, 9900, 11000]
-wmax = [1500, 3650, 9900, 11000, 30000]
-outres = [50, 30, 1.3/2.35, 30, 100]  # sigma of output in AA
-inres = [500, 10000, 10000, 10000, 2000]  # R of input in terms of lambda/FWHM
-inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
-
-deimos = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-          'inres':inres, 'in_vel': True, 'velocity': False,
-          'absmaxwave': 3e4, 'lores': 100,
-          'h5name': os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-          'outfile': os.path.join(cdir, 'lores/deimos_R1/ckc14_deimos_R1AA.flat.h5'),             
-         }
-
-# -------------------------
-# Lega-C
-# -------------------------
-
-wmin = [100, 1500, 3300, 5500, 11000]
-wmax = [1500, 3300, 5500, 11000, 30000]
-outres = [50, 30, 1.0/2.35, 30, 100]  # sigma of output in AA
-inres = [500, 10000, 10000, 10000, 2000]  # R of input in terms of lambda/FWHM
-inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
-
-legac = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-          'inres':inres, 'in_vel': True, 'velocity': False,
-          'absmaxwave': 3e4, 'lores': 100,
-          'h5name': os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-          'outfile': os.path.join(cdir, 'lores/ckc14_legac.flat.h5'),             
-         }
-
-# -------------------------
-# MANGA
-# -------------------------
-
-wmin = [100, 1500, 3500, 11000, 30000]
-wmax = [1500, 3500, 11000, 30000, 100000000]
-outres = [25 * 2.35, 50 * 2.35, 3000 * 2.35, 50 * 2.35, 25 * 2.35] # R of output in terms of lambda/sigma_lambda
-inres = [500, 10000, 10000, 2000, 50]  # R of input in terms of lambda/FWHM
-inres = [2.998e5 / (r * 2.35)  for r in inres] # sigma of input in km/s
-
-manga = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-          'inres':inres, 'in_vel': True, 'velocity': True,
-          'h5name': os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-          'outfile': os.path.join(cdir, 'lores/manga/ckc14_manga.flat.h5'),             
-         }
-
-# -------------------------
-# SPHEREx
-# -------------------------
-
-wmin = [100,  1500, 3650,  11000, 30000]
-wmax = [1500, 3650, 11000, 30000, 40e4]
-# R of output in terms of lambda/sigma
-outres = [50*2.35, 50*2.35, 50*2.35, 50*2.35, 50*2.35]
-# R of input in terms of lambda/sigma
-inres = [500*2.35, 10000*2.35, 10000*2.35, 2000*2.35, 50*2.35] 
-inres = [2.998e5 / r  for r in inres] # sigma of input in km/s
-
-spherex = {'R': outres, 'wmin': wmin, 'wmax': wmax,
-           'inres':inres, 'in_vel': True, 'velocity': True,
-           'absmaxwave': 4e5, 'lores': 100,
-           'h5name': os.path.join(cdir, 'data/h5/ckc14_fsps.flat.h5'),
-           'outfile': os.path.join(cdir, 'lores/irtf/ckc14_.flat.h5'),             
-          }
+rfwhm = 1/np.sqrt(1.0/500**2 - 1.0/Rckc**2)
+R500 = {'name': 'R500',
+        'resolution': rfwhm * sigma_to_fwhm, 'res_units': '\lambda/\sigma_\lambda',
+        'logarithmic': True, 'oversample': 2.,
+        'fftsmooth': True, 'smoothtype': 'R',
+        'min_wave_smooth': 910., 'max_wave_smooth':35e4}

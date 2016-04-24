@@ -1,6 +1,6 @@
 # This module exists to create HDF5 files of the full resolution ckc grid from
 # the ascii files.
-# The ascii read-in takes about 5s per spectrum.
+# The ascii read-in takes about 15s per spectrum.
 # The output is split into separate hdf5 files based on `feh`
 
 import os, sys, time
@@ -132,12 +132,13 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5'):
 
 if __name__ == "__main__":
 
-    ncpu = 4
+    ncpu = 6
     pool = Pool(ncpu)
     M = pool.map
     #M = map
 
-    zlist = [-2.0, -1.5, -0.5, 0.0]
+    zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25,
+             -1.75, -1.25, -0.75, -0.25, 0.25, 0.75]
     #zlist = full_params['feh']
     #zlist = [0.5]
     
