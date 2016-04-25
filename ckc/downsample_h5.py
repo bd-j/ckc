@@ -3,14 +3,17 @@ import json
 import numpy as np
 import h5py
 #from ykc_data import sigma_to_fwhm
-from bsfh.utils import smoothing
+try:
+    from bsfh.utils import smoothing
+except(ImportError):
+    from prospect.utils import smoothing
 
 from libparams import *
 
 
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
 
-h5dir_default = '/Users/bjohnson/Codes/SPS/ckc/ckc/h5/'
+h5dir_default = '/Users/bjohnson/code/ckc/ckc/h5/'
 
 
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
@@ -79,7 +82,7 @@ def downsample_all_h5(conv_pars, pool=None,
     params = np.concatenate([r[2] for r in results])
 
     outdir = conv_pars.get('outdir', 'lores')
-    outname = '{}/ykc_{}.h5'.format(outdir, conv_pars['name'])
+    outname = '{}/ckc_{}.h5'.format(outdir, conv_pars['name'])
     with h5py.File(outname, "w") as f:
         wave = f.create_dataset('wavelengths', data=wave)
         spectra = f.create_dataset('spectra', data=spectra)
@@ -94,13 +97,14 @@ if __name__ == "__main__":
         grism = sys.argv[1]
         conv_pars = globals()[grism]
     else:
-        conv_pars = wfc3_g102
+        conv_pars = R500
 
     pool = None
     import multiprocessing
-    nproc = min([8, len(hnames)])
+    zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
+    nproc = min([6, len(zlist)])
     pool = multiprocessing.Pool(nproc)
-    downsample_all_h5(conv_pars, pool=pool)
+    downsample_all_h5(conv_pars, zlist=zlist, pool=pool)
     try:
         pool.close()
     except:
