@@ -1,3 +1,6 @@
+# This module contains methods for downsampling the full R=200K C3K spectra to
+# other resolutions.
+
 import sys, time, gc
 import json
 import numpy as np
@@ -13,7 +16,7 @@ from libparams import *
 
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
 
-h5dir_default = '/Users/bjohnson/code/ckc/ckc/h5/'
+h5dir_default = '/Users/bjohnson/code/ckc/ckc/data/h5/'
 
 
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,

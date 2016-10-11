@@ -26,7 +26,8 @@ param_order = ['t', 'g', 'feh', 'afe']
 hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
                  "t{t:05.0f}g{g:.4s}.spec.gz")
 hires_dstring = "data/fullres/ckc_v1.2/at12_feh{:+3.2f}_afe+0.0/spec/"
-    
+
+
 def param_map(ps):
     """Logify Teff
     """
@@ -71,6 +72,7 @@ def get_hires_spectrum(param, fstring=hires_fstring, dstring=hires_dstring):
     full_cont = np.array(fulldf[:,2]) # continuum
     return full_spec, full_cont, wave
 
+
 def existing_params(params, fstring=hires_fstring, dstring=hires_dstring):
     """Test for the existence of a spec file for each of the
     parameters in the given list, and return a list of only those
@@ -86,7 +88,8 @@ def existing_params(params, fstring=hires_fstring, dstring=hires_dstring):
         if os.path.exists(fn):
             exists.append(p)
     return exists
-        
+
+
 def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5'):
     """Make an HDF5 file containing the full resolution spectrum (and
     continuum) of all the ckc spectra with a given `feh` value.  This function

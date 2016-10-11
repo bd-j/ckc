@@ -1,3 +1,7 @@
+# Make libraries from the FSPS resolution versions of CKC14.  Note these
+# include extrapolated/interpolated spectra, and have already been downsampled
+# (with different R in different wavelength regims)
+
 import os
 import utils
 import numpy as np
