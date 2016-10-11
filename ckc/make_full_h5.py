@@ -38,7 +38,38 @@ pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
-def get_hires_spectrum(param, fstring=hires_fstring, dstring=hires_dstring):
+searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
+def files_and_params(searchstring=searchstring):
+
+    import glob, re
+
+    # get all matching files
+    files = glob.glob(searchstring)
+
+    print(searchstring, len(files))
+    # set up parsing tools
+    tpat, ts = re.compile(r"_t.{5}"), slice(2, None)
+    zpat, zs = re.compile(r"_feh.{5}"), slice(4, None)
+    gpat, gs = re.compile(r"g.{4}.spec.gz"), slice(1, 4)
+    apat, asl = re.compile(r"_afe.{4}"), slice(4, None)
+
+    # parse filenames for parameters
+    feh = [float(re.findall(zpat, f)[-1][zs]) for f in files]
+    teff = [float(re.findall(tpat, f)[-1][ts]) for f in files]
+    logg = [float(re.findall(gpat, f)[-1][gs]) for f in files]
+    try:
+        afe = [float(re.findall(apat, f)[-1][asl]) for f in files]
+    except(IndexError):
+        afe = len(logg) * [0.0]
+
+    # make sure we get the param order right using the global param_order
+    parlists = {'t': teff, 'g': logg, 'feh': feh, 'afe': afe} 
+    params = zip(*[parlists[p] for p in param_order])
+    return files, params
+
+
+def get_hires_spectrum(param=None, fstring=hires_fstring, dstring=hires_dstring,
+                       filename=None):
     """Read a hires spectrum from ascii files.
 
     :param param:
@@ -58,11 +89,15 @@ def get_hires_spectrum(param, fstring=hires_fstring, dstring=hires_dstring):
     :returns wave:
         The wavelength vector of the high-resolution spectrum.
     """
-    pars = dict(zip(param_order, param))
-    # hack to get correct g widths
-    pars['g'] = '{:4.2f}'.format(pars['g'])
-    dirname = dstring.format(pars['feh'])
-    fn = dirname + fstring.format(**pars)
+    if filename is None:
+        pars = dict(zip(param_order, param))
+        # hack to get correct g widths
+        pars['g'] = '{:4.2f}'.format(pars['g'])
+        dirname = dstring.format(pars['feh'])
+        fn = dirname + fstring.format(**pars)
+    else:
+        fn = filename
+
     if os.path.exists(fn) is False:
         print('did not find {}'.format(fn))
         return 0, 0, None
@@ -131,6 +166,38 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5'):
                 cont[i,:] = 0
                 print('problem storing spectrum @ params {}'.format(dict(zip(param_order, p))))
     return h5name
+
+
+def specall(searchstring, h5name='test.h5'):
+    """Make an HDF5 file from all spectra that match the pattern given by
+    searchstring.  Parameters from each file are automatically extracted from
+    the filename.
+    """
+    files, params = files_and_params(searchstring)
+    nspec, npar = len(params), len(params[0])
+    assert npar == len(pnames)
+    dt = np.dtype(zip(pnames, npar * [np.float]))
+    pars = np.empty(nspec, dtype=dt)
+    with h5py.File(h5name, 'w') as f:
+        s, c, w = get_hires_spectrum(filename=files[0])
+        nwave = len(w)
+        spec = f.create_dataset('spectra', (nspec, nwave))
+        cont = f.create_dataset('continuua', (nspec, nwave))
+        pset = f.create_dataset('parameters', data=pars)
+        wave = f.create_dataset('wavelengths', data=w)
+        for i, (fn, p) in enumerate(zip(files, params)):
+            s, c, w = get_hires_spectrum(filename=fn)
+            pset[i] = tuple(param_map(list(p)))
+            if w is None:
+                continue
+            try:
+                spec[i,:] = s
+                cont[i,:] = c
+            except:
+                spec[i,:] = 0
+                cont[i,:] = 0
+                print('problem storing spectrum @ params {}'.format(dict(zip(param_order, p))))
+        
 
 
 if __name__ == "__main__":
