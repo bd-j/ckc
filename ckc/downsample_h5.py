@@ -16,7 +16,7 @@ from libparams import *
 
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
 
-h5dir_default = '/Users/bjohnson/code/ckc/ckc/data/h5/'
+h5dir_default = '/Users/bjohnson/code/ckc/ckc/h5/'
 
 
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
@@ -104,7 +104,8 @@ if __name__ == "__main__":
 
     pool = None
     import multiprocessing
-    zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
+    #zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
+    zlist = [-2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.50, 0.75]
     nproc = min([6, len(zlist)])
     pool = multiprocessing.Pool(nproc)
     downsample_all_h5(conv_pars, zlist=zlist, pool=pool)
