@@ -27,7 +27,7 @@ if not os.path.exists(dM_R10K_hname):
 # combine ckc and dM
 # assumes wavelength scale is exactly the same
 combined_hname = 'lores/ckc+dMall_R10K.h5'
-if not os.path.exists(combined_hname):
+if True: #not os.path.exists(combined_hname):
     with h5py.File(ckc_R10K_hname,'r') as ckc, h5py.File(dM_R10K_hname,'r') as dm, h5py.File(combined_hname,'w') as combined:
         assert ckc['wavelengths'].shape == dm['wavelengths'].shape
         assert np.allclose(ckc['wavelengths'][:], dm['wavelengths'][:])
@@ -36,7 +36,7 @@ if not os.path.exists(combined_hname):
         params = combined.create_dataset('parameters', data=np.concatenate([ckc['parameters'], dm['parameters']]))
         spectra = combined.create_dataset('spectra', data=np.vstack([ckc['spectra'], dm['spectra']]))
 
-sys.exit()
+#sys.exit()
     
 # smoothing parameters.
 # for miles we use the quadrature difference between 2.54 \AA FWHM and 5500AA/10,000 = 0.55\AA
@@ -73,12 +73,12 @@ combined_lores_hname = 'lores/irtf/ckc+dMall_miles+irtf.h5'
 wave = np.concatenate([mwave, iwave])
 
 out = h5py.File(combined_lores_hname, 'w')
-wave = out.create_dataset('wavelengths', data=wave)
+w = out.create_dataset('wavelengths', data=wave)
 cspec = out.create_dataset('spectra', data=np.hstack([mspec, ispec]))
 cpars = out.create_dataset('parameters', data=params)
 out.attrs['MILES_info'] = json.dumps(miles_pars)
 out.attrs['IRTF_info'] = json.dumps(irtf_pars)
-
+out.close()
 
 # make version with same parameters as fsps version
 fpars = np.zeros(len(params), dtype=np.dtype([(d, '<f8') for d in ['Z', 'logg', 'logt']]))
@@ -86,11 +86,11 @@ fpars['Z'] = 0.0134 * 10**params['feh']
 fpars['logg'] = params['logg']
 fpars['logt'] = params['logt']
 out = h5py.File('lores/irtf/ckc+dMall_miles+irtf.forpsi.h5', 'w')
-wave = out.create_dataset('wavelengths', data=wave)
+w = out.create_dataset('wavelengths', data=wave)
 cspec = out.create_dataset('spectra', data=np.hstack([mspec, ispec]))
 cpars = out.create_dataset('parameters', data=fpars)
 out.attrs['MILES_info'] = json.dumps(miles_pars)
 out.attrs['IRTF_info'] = json.dumps(irtf_pars)
-
+out.close()
 
 
