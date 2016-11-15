@@ -27,7 +27,7 @@ def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
     grid that properly samples the resolution.
     """
     if logarithmic:
-        dlnlam = 1.0/resolution/2/oversample  # critically sample the resolution
+        dlnlam = 1.0 / resolution / oversample  # critically sample the resolution
         lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
         #print(lnmin, lnmax, dlnlam, resolution, oversample)
         out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
