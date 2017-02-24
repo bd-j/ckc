@@ -312,7 +312,7 @@ def binary_to_hdf(hname):
 
 def ckc_params(expanded=False, zlegend=None, logg=None, logt=None,
                 **extras):
-    """Get parameters (Z, g, T) for the CKC library.
+    """Get parameters (Z, g, T) for the CKC/BaSeL library.
 
     :param expanded:
         If True, return a structured array of length (n_logg * n_logt

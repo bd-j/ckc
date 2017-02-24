@@ -26,6 +26,7 @@ param_order = ['t', 'g', 'feh', 'afe']
 hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
                  "t{t:05.0f}g{g:.4s}.spec.gz")
 hires_dstring = "data/fullres/ckc_v1.2/at12_feh{:+3.2f}_afe+0.0/spec/"
+searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
 
 
 def param_map(ps):
@@ -38,7 +39,6 @@ pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
-searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
 def files_and_params(searchstring=searchstring):
 
     import glob, re
