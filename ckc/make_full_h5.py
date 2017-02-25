@@ -174,18 +174,24 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
                 spec[i,:] = 0
                 cont[i,:] = 0
                 print('problem storing spectrum @ params {}'.format(dict(zip(param_order, p))))
+            if (i % 10) == 0:
+                f.flush()
+
     return h5name
 
 
 if __name__ == "__main__":
 
     try:
-        ncpu = sys.argv[1]
+        ncpu = int(sys.argv[1])
     except(IndexError):
         ncpu = 6
-        
-    pool = Pool(ncpu)
-    M = pool.map
+
+    if ncpu == 1:
+        M = map
+    else:
+        pool = Pool(ncpu)
+        M = pool.map
     #M = map
 
     # --- Metallicities to loop over/map ---
