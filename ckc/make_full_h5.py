@@ -23,24 +23,6 @@ full_params = {'t': np.concatenate(t),
 
 param_order = ['t', 'g', 'feh', 'afe']
 
-# Paths and filenames
-ck_vers = 'c3k_v1.3'  # ckc_v1.2
-basedir = '/n/conroyfs1/cconroy/kurucz/grids'
-basedir = 'data/fullres'
-
-hires_dstring = os.path.join(basedir, ck_vers,
-                             "at12_feh{:+3.2f}_afe+0.0/spec/")
-hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
-                 "t{t:05.0f}g{g:.4s}.spec.gz")
-
-lores_dstring = os.path.join(basedir, ck_vers,
-                             "at12_feh{:+3.2f}_afe+0.0/sed/")
-lores_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
-                 "t{t:05.0f}g{g:.4s}.sed")
-
-searchstring = os.path.join(hires_dstring, '*spec.gz')
-#searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
-
 
 def param_map(ps):
     """Logify Teff
@@ -63,7 +45,7 @@ def files_and_params(searchstring=searchstring):
     # set up parsing tools
     tpat, ts = re.compile(r"_t.{5}"), slice(2, None)
     zpat, zs = re.compile(r"_feh.{5}"), slice(4, None)
-    gpat, gs = re.compile(r"g.{4}.spec.gz"), slice(1, 4)
+    gpat, gs = re.compile(r"g.{4}.spec.gz"), slice(1, 5)
     apat, asl = re.compile(r"_afe.{4}"), slice(4, None)
 
     # parse filenames for parameters
@@ -197,17 +179,47 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
 
 if __name__ == "__main__":
 
-    ncpu = 6
+    try:
+        ncpu = sys.argv[1]
+    except(IndexError):
+        ncpu = 6
+        
     pool = Pool(ncpu)
     M = pool.map
     #M = map
 
-    zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25,
-             -1.75, -1.25, -0.75, -0.25, 0.25, 0.75]
+    # --- Metallicities to loop over/map ---
+    zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
+             -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
+             0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
     #zlist = full_params['feh']
     #zlist = [0.5]
 
-    partial_specset = partial(specset, h5template='h5/ckc_feh={:+3.2f}.full.h5',
+    # ---- Paths and filename templates -----
+    ck_vers = 'c3k_v1.3'  # ckc_v1.2
+    basedir = '/n/conroyfs1/cconroy/kurucz/grids'
+    #basedir = 'data/fullres'
+
+    hires_dstring = os.path.join(basedir, ck_vers,
+                                 "at12_feh{:+3.2f}_afe+0.0/spec/")
+    hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
+                     "t{t:05.0f}g{g:.4s}.spec.gz")
+    hires_searchstring = os.path.join(hires_dstring, '*spec.gz')
+
+    lores_dstring = os.path.join(basedir, ck_vers,
+                                 "at12_feh{:+3.2f}_afe+0.0/sed/")
+    lores_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
+                     "t{t:05.0f}g{g:.4s}.sed")
+    lores_searchstring = os.path.join(lores_dstring, '*spec.gz')
+
+    # String to use for looking for files in a given zdirectory
+    #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
+
+    # output
+    h5name = 'h5/'+ck_vers+'_feh{:+3.2f}.full.h5'
+
+    # --- Run -----
+    partial_specset = partial(specset, h5template=h5name, searchstring=hires_searchstring,
                               dstring=hires_dstring, fstring=hires_fstring)
     ts = time.time()
     filenames = list(M(partial_specset, list(zlist)))
