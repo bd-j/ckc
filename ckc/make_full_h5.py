@@ -34,7 +34,7 @@ pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
-def files_and_params(searchstring=searchstring):
+def files_and_params(searchstring='.'):
 
     import glob, re
 
