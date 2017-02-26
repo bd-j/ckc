@@ -233,4 +233,7 @@ if __name__ == "__main__":
 
     print(filenames)
     print('took {}s'.format(dur))
-    pool.terminate()
+    try:
+        pool.terminate()
+    except:
+        pass
