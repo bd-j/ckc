@@ -5,6 +5,7 @@ import sys, time, gc
 import json
 import numpy as np
 from functools import partial
+from itertools import imap
 import multiprocessing
 
 import h5py
@@ -25,12 +26,14 @@ def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
     grid that properly samples the resolution.
     """
     if logarithmic:
-        dlnlam = 1.0 / resolution / oversample  # critically sample the resolution
+        # critically sample the resolution
+        dlnlam = 1.0 / resolution / oversample  
         lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
         #print(lnmin, lnmax, dlnlam, resolution, oversample)
         out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
     else:
-        out = np.arange(min_wave_smooth, max_wave_smooth, dispersion / oversample)
+        out = np.arange(min_wave_smooth, max_wave_smooth,
+                        dispersion / oversample)
     return out    
 
 
@@ -65,38 +68,56 @@ class function_wrapper(object):
 
 
 def downsample_all_h5(pool=None, zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
-                      htemp='/Users/bjohnson/code/ckc/ckc/h5/ckc_feh={:+3.2f}.full.h5',
+                      htemp='ckc_feh={:+3.2f}.full.h5',
                       **conv_pars):
 
-    hnames = [htemp.format(z) for z in zlist]
+    if pool is not None:
+        M = pool.imap
+    else:
+        M = imap
 
+    hnames = [htemp.format(z) for z in zlist]
     #downsample_with_pars = function_wrapper(downsample_one_h5, conv_pars)
     downsample_with_pars = partial(downsample_one_h5, **conv_pars)
-    
-    if pool is not None:
-        M = pool.map
-    else:
-        M = map
-
-    results = M(downsample_with_pars, hnames)
-    wave = results[0][0]
-    spectra = np.vstack([r[1] for r in results])
-    params = np.concatenate([r[2] for r in results])
+    mapper = M(downsample_with_pars, hnames)
 
     outdir = conv_pars.get('outdir', 'lores')
     outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
-    with h5py.File(outname, "w") as f:
-        wave = f.create_dataset('wavelengths', data=wave)
-        spectra = f.create_dataset('spectra', data=spectra)
-        par = f.create_dataset('parameters', data=params)
-        for k, v in list(conv_pars.items()):
-            f.attrs[k] = json.dumps(v)
+
+    for i, result in enumerate(mapper):
+        if i == 0:
+            out, spectra, par = initialize_h5(outname, *result)
+            #wave = out.create_dataset('wavelengths', data=result[0])
+        nmod, nw = spectra.shape
+        nnew = len(result[2])
+        spectra.resize(nmod + nnew, axis=0)
+        spectra[nmod:, :] = result[1]
+        par.resize(nmod + nnew, axis=0)
+        par[nmod:] = result[2]
+        out.flush()
+
+    for k, v in list(conv_pars.items()):
+        out.attrs[k] = json.dumps(v)
+    out.close()
+
+        
+def initialize_h5(name, wave, spec, par):
+    out = h5py.File(name, "w")
+    nmod, nw = spec.shape
+    spectra = out.create_dataset('spectra', shape=(0, nw),
+                                 maxshape=(None, nw))
+    par = out.create_dataset('parameters', shape=(0,),
+                             maxshape=(None,), dtype=par.dtype)
+    wave = out.create_dataset('wavelengths', data=wave)
+    out.flush()
+    return out, spectra, par
 
 
 if __name__ == "__main__":
 
     #zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
-    #zlist = [-2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.50, 0.75]
+    #zlist = [-2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
+    #         0.0, 0.25, 0.50, 0.75]
     zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
              -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
              0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
@@ -107,11 +128,13 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default='R500',
-                        help="Name of dictionary that describes the output spectral parameters")
+                        help=("Name of dictionary that describes the "
+                              "output spectral parameters"))
     parser.add_argument("--np", type=int, default=6,
                         help="number of processors")
     parser.add_argument("--hname", type=str, default=htemp_default,
-                        help="A string that gives the full reolution h5 file template.")
+                        help=("A string that gives the full reolution "
+                              "h5 file template."))
     args = parser.parse_args()
 
 
@@ -131,5 +154,3 @@ if __name__ == "__main__":
         pool.close()
     except:
         pass
-
-
