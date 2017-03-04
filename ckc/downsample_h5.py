@@ -18,6 +18,17 @@ from libparams import *
 __all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
 
 
+class function_wrapper(object):
+    """A hack to make the downsampling function pickleable for MPI.
+    """
+    def __init__(self, function, function_kwargs):
+        self.function = function
+        self.kwargs = function_kwargs
+
+    def __call__(self, args):
+        return self.function(*args, **self.kwargs)
+
+
 def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
                             dispersion=1.0, oversample=2.0,
                             resolution=3e5, logarithmic=False,
@@ -37,9 +48,11 @@ def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
     return out    
 
 
-def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
+def smooth_onez(fullres_hname, resolution=1.0, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in
-    that file, and return the result as ndarrays
+    that file, and return the result as ndarrays.
+
+    Should probably be using imap here instead of in downsample_all_h5.
     """
     outwave = construct_grism_outwave(resolution=resolution, **conv_pars)
     #print(resolution, len(outwave), conv_pars['smoothtype'])
@@ -53,23 +66,106 @@ def downsample_one_h5(fullres_hname, resolution=1.0, **conv_pars):
                                      outwave=outwave, **conv_pars)
             flores[i, :] = s
     gc.collect()
-    return outwave, flores, params
+    return outwave, flores, params, None
 
 
-class function_wrapper(object):
-    """A hack to make the downsampling function pickleable for MPI.
+def mappable_smoothspec(flux, wave=None, resolution=None,
+                        outwave=None, **extras):
+    """Convert keyword to positional arguments."""
+    s = smoothing.smoothspec(wave, flux, resolution,
+                             outwave=outwave, **conv_pars)
+    return s
+
+
+def smooth_onez_map(fullres_hname, resolution=1.0,
+                    outfile=None, datasets=None, pool=None,
+                    **conv_pars):
+    """Read one full resolution h5 file, downsample every spectrum in
+    that file, and put in the supplied hdf5 datasets
     """
-    def __init__(self, function, function_kwargs):
-        self.function = function
-        self.kwargs = function_kwargs
+    # get the imap ready
+    if pool is not None:
+        M = pool.imap
+    else:
+        M = imap
 
-    def __call__(self, args):
-        return self.function(*args, **self.kwargs)
+    # prepare output
+    if datasets is not None:
+        wave, spec, pars = datasets
+    else:
+        wave = outfile['wavelengths']
+        spec = outfile['spectra']
+        pars = outfile['parameters']
+
+    # existing output wave and number of models
+    outwave = np.array(wave)
+    nmod = len(pars)
+
+    # now map/loop through a single highres h5 file
+    with h5py.File(fullres_hname, 'r') as fullres:
+
+        # Get the hires parameters
+        params = np.array(fullres['parameters'])
+        whires = np.array(fullres['wavelengths'])
+
+        # expand output arrays
+        nnew = len(params)
+        spec.resize(nmod + nnew, axis=0)
+        par.resize(nmod + nnew, axis=0)
+        
+        # build a mappable function and iterator
+        smooth = partial(mappable_smoothspec,
+                         wave=whires, resolution=resolution,
+                         outwave=outwave, **conv_pars)
+        mapper = M(smooth, fullres['spectra'])
+
+        # iterate over the hires spectra placing result in output
+        for i, result in enumerate(mapper):
+            spectra[nmod+i, :] = result
+            par[nmod+i] = params[i]
+            outfile.flush()
+
+    try:
+        pool.close()
+    except:
+        pass
+    # give the output dataset objects back
+    return wave, spec, pars, outfile
 
 
-def downsample_all_h5(pool=None, zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
-                      htemp='ckc_feh={:+3.2f}.full.h5',
-                      **conv_pars):
+def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
+                    zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
+                    **conv_pars):
+
+    hnames = [htemp.format(z) for z in zlist]
+
+    # Output filename and wavelength grid
+    outdir = conv_pars.get('outdir', 'lores')
+    outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
+    outwave = construct_grism_outwave(**conv_pars)
+    # Output h5 datasets
+    with h5py.File(hnames[0], 'r') as f:
+        pars = f['parameters']
+        output = initialize_h5(outname, outwave,
+                               np.atleast_2d(outwave), pars)
+    out, dsets = output[-1], output[:-1]
+
+    # loop over h5 files
+    for i, hfile in enumerate(hnames):
+        output = smooth_onez_map(hfile, pool=pool, outfile=out,
+                                 datasets=dsets, **conv_pars)
+        outfile = output[-1]
+        dsets = output[:-1]
+
+    # write useful info and close
+    for k, v in list(conv_pars.items()):
+        outfile.attrs[k] = json.dumps(v)
+    outfile.close()
+
+
+def downsample_allz_map(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
+                        zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
+                        **conv_pars):
 
     if pool is not None:
         M = pool.imap
@@ -77,40 +173,49 @@ def downsample_all_h5(pool=None, zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
         M = imap
 
     hnames = [htemp.format(z) for z in zlist]
-    #downsample_with_pars = function_wrapper(downsample_one_h5, conv_pars)
-    downsample_with_pars = partial(downsample_one_h5, **conv_pars)
-    mapper = M(downsample_with_pars, hnames)
 
+    # Output filename and wavelength grid
     outdir = conv_pars.get('outdir', 'lores')
     outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
+    outwave = construct_grism_outwave(**conv_pars)
+    # Output h5 datasets
+    with h5py.File(hnames[0], 'r') as f:
+        pars = f['parameters']
+        output = initialize_h5(outname, outwave,
+                               np.atleast_2d(outwave), pars)
+    wave, spectra, par, out = output
 
-    for i, result in enumerate(mapper):
-        if i == 0:
-            out, spectra, par = initialize_h5(outname, *result)
-            #wave = out.create_dataset('wavelengths', data=result[0])
+    # Map iterable
+    #downsample_with_pars = function_wrapper(smooth_onez, conv_pars)
+    downsample_with_pars = partial(smooth_onez, **conv_pars)
+    mapper = M(downsample_with_pars, hnames)
+
+    # loop over h5 files
+    for i, (w, s, p, x) in enumerate(mapper):
         nmod, nw = spectra.shape
-        nnew = len(result[2])
+        nnew = len(p)
         spectra.resize(nmod + nnew, axis=0)
-        spectra[nmod:, :] = result[1]
+        spectra[nmod:, :] = s
         par.resize(nmod + nnew, axis=0)
-        par[nmod:] = result[2]
+        par[nmod:] = p
         out.flush()
 
+    # write useful info and close
     for k, v in list(conv_pars.items()):
         out.attrs[k] = json.dumps(v)
     out.close()
 
-        
+
 def initialize_h5(name, wave, spec, par):
     out = h5py.File(name, "w")
-    nmod, nw = spec.shape
+    nmod, nw = len(par), len(wave)
     spectra = out.create_dataset('spectra', shape=(0, nw),
                                  maxshape=(None, nw))
     par = out.create_dataset('parameters', shape=(0,),
                              maxshape=(None,), dtype=par.dtype)
     wave = out.create_dataset('wavelengths', data=wave)
     out.flush()
-    return out, spectra, par
+    return wave, spectra, par, out
 
 
 if __name__ == "__main__":
@@ -149,7 +254,7 @@ if __name__ == "__main__":
         pool = Pool(ncpu)
 
     print(ncpu, h5temp, args.config)
-    downsample_all_h5(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
+    downsample_allz_map(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
     try:
         pool.close()
     except:
