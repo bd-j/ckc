@@ -137,7 +137,9 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
     :param h5template:
         The oputput h5 name template
     """
-    h5name = h5template.format(z)
+    z = np.atleast_1d(z)
+    h5name = h5template.format(*z)
+    
     # Get a set of existing parameters for this feh value
     if searchstring is None:
         # Use a specified grid of parameters
@@ -149,7 +151,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
         params = existing_params(params, fstring=fstring, dstring=dstring)
     else:
         # just pull everything from the directory matching searchstring
-        files, params = files_and_params(searchstring.format(z))
+        files, params = files_and_params(searchstring.format(*z))
         params = np.array(params)
 
     nspec, npar = len(params), len(params[0])
@@ -182,11 +184,19 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
 
 if __name__ == "__main__":
 
-    try:
-        ncpu = int(sys.argv[1])
-    except(IndexError):
-        ncpu = 6
-
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--np", type=int, default=6,
+                        help="number of processors")
+    #parser.add_argument("--config", type=str, default='R500',
+    #                    help=("Name of dictionary that describes the "
+    #                          "output spectral parameters"))
+    #parser.add_argument("--hname", type=str, default=htemp_default,
+    #                    help=("A string that gives the full reolution "
+    #                          "h5 file template."))
+    args = parser.parse_args()
+    
+    ncpu = args.np
     if ncpu == 1:
         M = map
     else:
@@ -198,14 +208,19 @@ if __name__ == "__main__":
     zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
              -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
              0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
+    afelist = [0.0]
     #zlist = full_params['feh']
     #zlist = [0.5]
 
+    from itertools import product
+    metlist = product(zlist, afelist)
+    
     # ---- Paths and filename templates -----
     ck_vers = 'c3k_v1.3'  # ckc_v1.2
     basedir = '/n/conroyfs1/cconroy/kurucz/grids'
     #basedir = 'data/fullres'
 
+    
     hires_dstring = os.path.join(basedir, ck_vers,
                                  "at12_feh{:+3.2f}_afe+0.0/spec/")
     hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"

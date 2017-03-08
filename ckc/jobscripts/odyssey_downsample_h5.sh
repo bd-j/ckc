@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-#SBATCH -J c3k_to_h5
+#SBATCH -J c3k_downsample
 #SBATCH -n 20 # Number of cores requested
 #SBATCH -N 1 # Ensure that all cores are on one machine
 #SBATCH -t 6:00:00 # Runtime 
@@ -14,4 +14,4 @@ ncpu=$SLURM_JOB_CPUS_PER_NODE
 
 source activate pympi
 cd /n/regal/conroy_lab/bdjohnson/ckc/ckc/
-python make_full_h5.py --np $ncpu
+python downsample_h5.py --config R5K --np $ncpu --hname 'h5/c3k_v1.3_feh{:+3.2f}.full.h5'

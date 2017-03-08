@@ -80,8 +80,9 @@ def mappable_smoothspec(flux, wave=None, resolution=None,
 def smooth_onez_map(fullres_hname, resolution=1.0,
                     outfile=None, datasets=None, pool=None,
                     **conv_pars):
-    """Read one full resolution h5 file, downsample every spectrum in
-    that file, and put in the supplied hdf5 datasets
+    """Read one full resolution h5 file, downsample every spectrum in that
+    file, and put in the supplied hdf5 datasets.  Uses `map` to distribute the
+    spectra to different processors.
     """
     # get the imap ready
     if pool is not None:
@@ -136,7 +137,13 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
 def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
                     zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
                     **conv_pars):
+    """Simple loop over hdf5 files (one for each feh) but use `map` within each
+    loop to distribute the spectra in each file to different processors to be
+    smoothed. Calls `smooth_onez_map`.
 
+    "Map over spectra"
+    """
+    
     hnames = [htemp.format(z) for z in zlist]
 
     # Output filename and wavelength grid
@@ -148,11 +155,11 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
         pars = f['parameters']
         output = initialize_h5(outname, outwave,
                                np.atleast_2d(outwave), pars)
-    out, dsets = output[-1], output[:-1]
+    outfile, dsets = output[-1], output[:-1]
 
     # loop over h5 files
     for i, hfile in enumerate(hnames):
-        output = smooth_onez_map(hfile, pool=pool, outfile=out,
+        output = smooth_onez_map(hfile, pool=pool, outfile=outfile,
                                  datasets=dsets, **conv_pars)
         outfile = output[-1]
         dsets = output[:-1]
@@ -166,7 +173,11 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
 def downsample_allz_map(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
                         zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
                         **conv_pars):
+    """ Use `map` to distribute the loop over hdf5 files (one for each feh) to
+    different processors.  Calls `smooth_onez`.
 
+    "Map over files"
+    """
     if pool is not None:
         M = pool.imap
     else:
@@ -226,7 +237,7 @@ if __name__ == "__main__":
     zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
              -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
              0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
-    zlist = [0.0]
+    #zlist = [0.0]
         
     htemp_default = '/Users/bjohnson/code/ckc/ckc/h5/ckc_feh={:+3.2f}.full.h5'
 
@@ -239,7 +250,7 @@ if __name__ == "__main__":
                         help="number of processors")
     parser.add_argument("--hname", type=str, default=htemp_default,
                         help=("A string that gives the full reolution "
-                              "h5 file template."))
+                              "h5 filename template (to be formatted later)."))
     args = parser.parse_args()
 
 
@@ -254,7 +265,7 @@ if __name__ == "__main__":
         pool = Pool(ncpu)
 
     print(ncpu, h5temp, args.config)
-    downsample_allz_map(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
+    downsample_allz(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
     try:
         pool.close()
     except:
