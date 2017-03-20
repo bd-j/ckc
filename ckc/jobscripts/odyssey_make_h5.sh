@@ -12,6 +12,6 @@
 
 ncpu=$SLURM_JOB_CPUS_PER_NODE
 
-source activate pympi
+source activate pro
 cd /n/regal/conroy_lab/bdjohnson/ckc/ckc/
 python make_full_h5.py --np $ncpu

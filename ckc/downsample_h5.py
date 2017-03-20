@@ -1,12 +1,12 @@
 # This module contains methods for downsampling the full R=200K C3K spectra to
 # other resolutions.
 
-import sys, time, gc
+import sys, time, gc, os
 import json
 import numpy as np
 from functools import partial
 from itertools import imap
-import multiprocessing
+from multiprocessing import Pool
 
 import h5py
 #from ykc_data import sigma_to_fwhm
@@ -15,7 +15,9 @@ from prospect.utils import smoothing
 from libparams import *
 
 
-__all__ = ["construct_grism_outwave", "downsample_one_h5", "downsample_all_h5"]
+__all__ = ["construct_grism_outwave", "initialize_h5",
+           "smooth_onez", "downsample_allz_map", # These 2 get used together
+           "smooth_onez_map", "downsample_allz"] # These 2 get used together
 
 
 class function_wrapper(object):
@@ -73,7 +75,7 @@ def mappable_smoothspec(flux, wave=None, resolution=None,
                         outwave=None, **extras):
     """Convert keyword to positional arguments."""
     s = smoothing.smoothspec(wave, flux, resolution,
-                             outwave=outwave, **conv_pars)
+                             outwave=outwave, **extras)
     return s
 
 
@@ -112,7 +114,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
         # expand output arrays
         nnew = len(params)
         spec.resize(nmod + nnew, axis=0)
-        par.resize(nmod + nnew, axis=0)
+        pars.resize(nmod + nnew, axis=0)
         
         # build a mappable function and iterator
         smooth = partial(mappable_smoothspec,
@@ -122,8 +124,8 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
 
         # iterate over the hires spectra placing result in output
         for i, result in enumerate(mapper):
-            spectra[nmod+i, :] = result
-            par[nmod+i] = params[i]
+            spec[nmod+i, :] = result
+            pars[nmod+i] = params[i]
             outfile.flush()
 
     try:
@@ -144,7 +146,7 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     "Map over spectra"
     """
     
-    hnames = [htemp.format(z) for z in zlist]
+    hnames = [htemp.format(*np.atleast_1d(z)) for z in zlist]
 
     # Output filename and wavelength grid
     outdir = conv_pars.get('outdir', 'lores')
@@ -159,6 +161,8 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
 
     # loop over h5 files
     for i, hfile in enumerate(hnames):
+        if os.path.exists(hfile) is False:
+            continue
         output = smooth_onez_map(hfile, pool=pool, outfile=outfile,
                                  datasets=dsets, **conv_pars)
         outfile = output[-1]
@@ -183,7 +187,8 @@ def downsample_allz_map(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     else:
         M = imap
 
-    hnames = [htemp.format(z) for z in zlist]
+    hnames = [htemp.format(*np.atleast_1d(z)) for z in zlist]
+    hnames = [hn for hn in hnames if os.path.exists(hn)]
 
     # Output filename and wavelength grid
     outdir = conv_pars.get('outdir', 'lores')
@@ -222,11 +227,11 @@ def initialize_h5(name, wave, spec, par):
     nmod, nw = len(par), len(wave)
     spectra = out.create_dataset('spectra', shape=(0, nw),
                                  maxshape=(None, nw))
-    par = out.create_dataset('parameters', shape=(0,),
-                             maxshape=(None,), dtype=par.dtype)
-    wave = out.create_dataset('wavelengths', data=wave)
+    params = out.create_dataset('parameters', shape=(0,),
+                                maxshape=(None,), dtype=par.dtype)
+    wavelength = out.create_dataset('wavelengths', data=wave)
     out.flush()
-    return wave, spectra, par, out
+    return wavelength, spectra, params, out
 
 
 if __name__ == "__main__":
@@ -234,10 +239,15 @@ if __name__ == "__main__":
     #zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
     #zlist = [-2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
     #         0.0, 0.25, 0.50, 0.75]
-    zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
-             -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-             0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
+    fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
+               -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
+               0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
     #zlist = [0.0]
+    afelist = [0.0, 0.2, 0.4]
+
+    from itertools import product
+    zlist = list(product(fehlist, afelist))
+
         
     htemp_default = '/Users/bjohnson/code/ckc/ckc/h5/ckc_feh={:+3.2f}.full.h5'
 
@@ -249,7 +259,7 @@ if __name__ == "__main__":
     parser.add_argument("--np", type=int, default=6,
                         help="number of processors")
     parser.add_argument("--hname", type=str, default=htemp_default,
-                        help=("A string that gives the full reolution "
+                        help=("A string that gives the full resolution "
                               "h5 filename template (to be formatted later)."))
     args = parser.parse_args()
 
@@ -258,7 +268,7 @@ if __name__ == "__main__":
     ncpu = args.np
     h5temp = args.hname
 
-    ncpu = min([ncpu, len(zlist)])
+    #ncpu = min([ncpu, len(zlist)])
     if ncpu == 1:
         pool = None
     else:

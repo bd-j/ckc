@@ -12,6 +12,6 @@
 
 ncpu=$SLURM_JOB_CPUS_PER_NODE
 
-source activate pympi
+source activate pro
 cd /n/regal/conroy_lab/bdjohnson/ckc/ckc/
-python downsample_h5.py --config R5K --np $ncpu --hname 'h5/c3k_v1.3_feh{:+3.2f}.full.h5'
+python downsample_h5.py --config R5K --np $ncpu --hname 'h5/c3k_v1.3_feh{:+3.2f}_afe{:+2.1f}.full.h5'
