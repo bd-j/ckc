@@ -128,10 +128,10 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
             pars[nmod+i] = params[i]
             outfile.flush()
 
-    try:
-        pool.close()
-    except:
-        pass
+    #try:
+    #    pool.close()
+    #except:
+    #    pass
     # give the output dataset objects back
     return wave, spec, pars, outfile
 
@@ -278,5 +278,5 @@ if __name__ == "__main__":
     downsample_allz(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
     try:
         pool.close()
-    except:
+    except(AttributeError):
         pass
