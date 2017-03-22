@@ -3,7 +3,7 @@
 # (with different R in different wavelength regims)
 
 import os
-import utils
+import binary_utils as utils
 import numpy as np
 import h5py
 
@@ -82,7 +82,7 @@ def make_lib_byz(R=1000, wmin=1e3, wmax=1e4, velocity=True,
             f.flush()
 
 def make_lib_flatfull(R=1000, wmin=1e3, wmax=1e4, velocity=True,
-                      h5name='data/h5/ckc14_fsps.flat.h5',
+                      h5name='fullres/fsps/ckc14/h5/ckc14_fsps.flat.h5',
                       outfile='ckc14_new.flat.h5', **extras):
     """Make a new downsampled CKC library, with the desired resolution
     in the desired wavelength range.  This makes an hdf5 file with the
@@ -192,15 +192,15 @@ if __name__ == "__main__":
 
 
     manga = {'R': 2000, 'wmin': 3500, 'wmax': 11000,
-             'dirname': utils.ckc_dir+'../lores/manga_R2000/',
+             'dirname': utils.ckc_dir+'/lores/manga_R2000/',
              'name': 'ckc14_manga'
              }
     manga3 = {'R': 3145, 'wmin': 3500, 'wmax': 11000,
-             'dirname': utils.ckc_dir+'../lores/manga_R3000/',
+             'dirname': utils.ckc_dir+'/lores/manga_R3000/',
              'name': 'ckc14_manga'
              }
     deimos = {'R': 5000, 'wmin': 4000, 'wmax': 11000,
-             'dirname': utils.ckc_dir+'../lores/deimos/',
+             'dirname': utils.ckc_dir+'/lores/deimos/',
              'name': 'ckc14_deimos',
              'h5out': 'ckc14_deimos.h5'
              }
@@ -209,8 +209,8 @@ if __name__ == "__main__":
     # a desired resolution of 2000
     r = 1/np.sqrt((1./2000)**2 - (1./4000)**2)
     irtf = {'R': r, 'wmin': 3000, 'wmax': 20000,
-             'h5name': utils.ckc_dir+'data/h5/ckc14_fsps.flat.h5',
-             'outfile': utils.ckc_dir+'../lores/ckc14_irtf.flat.h5'
+             'h5name': utils.ckc_dir+'fullres/fsps/ckc14/h5/ckc14_fsps.flat.h5',
+             'outfile': utils.ckc_dir+'/lores/ckc14_irtf.flat.h5'
              }
     make_lib_flatfull(**irtf)
 

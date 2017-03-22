@@ -6,7 +6,7 @@ __all__ = ["downsample_onespec", "smooth", "smooth_vel", "smooth_wave",
            "binary_to_hdf", "read_binary_spec",
            "construct_outwave", "ckc_params", "find_segments"]
 
-ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/ckc/data/'
+ckc_dir = '/Users/bjohnson/Codes/SPS/ckc/ckc/'
 
 
 def smooth(wave, spec, sigma, velocity=True, **kwargs):
@@ -190,9 +190,9 @@ def read_and_downsample_onez(z, outwave, outres, velocity=True,
     """
     if write_binary:
         outfile = open(binout.format(z), 'wb')
-    name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+    name = '{0}/fullres/fsps/ckc14/binary/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
 
-    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    wave = np.loadtxt('{0}/fullres/fsps/ckc14/ckc14.lambda'.format(ckc_dir))
     zlegend, logg, logt = ckc_params()
     nw = len(wave)
     nspec = len(logg) * len(logt)
@@ -290,7 +290,7 @@ def binary_to_hdf(hname):
     len(logt), nw) for that metallicity"
     """
     import h5py
-    wave = np.loadtxt('{0}/ckc14.lambda'.format(ckc_dir))
+    wave = np.loadtxt('{0}/fullres/fsps/ckc14/ckc14.lambda'.format(ckc_dir))
     nw = len(wave)
     zlegend, logg, logt = ckc_params()
     nspec = len(logg) * len(logt)
@@ -303,7 +303,7 @@ def binary_to_hdf(hname):
 
         zlist = ['{0:06.4f}'.format(z) for z in zlegend]
         for z in zlist:
-            name = '{0}/bin/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
+            name = '{0}/fullres/fsps/ckc14/binary/ckc14_z{1}.spectra.bin'.format(ckc_dir, z)
             spec = read_binary_spec(name, nw, nspec)
             spec = spec.reshape(len(logg), len(logt), nw)
             fl = spgr.create_dataset('z{0}'.format(z), data=spec)
@@ -321,11 +321,11 @@ def ckc_params(expanded=False, zlegend=None, logg=None, logt=None,
         structured array that gives the parameters of that spectrum.
     """
     if zlegend is None:
-        zlegend = np.loadtxt('{0}/gridpoints/zlegend.dat'.format(ckc_dir))
+        zlegend = np.loadtxt('{0}/fullres/fsps/ckc14/zlegend.dat'.format(ckc_dir))
     if logg is None:
-        logg = np.loadtxt('{0}/gridpoints/basel_logg.dat'.format(ckc_dir))
+        logg = np.loadtxt('{0}/fullres/fsps/basel_logg.dat'.format(ckc_dir))
     if logt is None:
-        logt = np.loadtxt('{0}/gridpoints/basel_logt.dat'.format(ckc_dir))
+        logt = np.loadtxt('{0}/fullres/fsps/basel_logt.dat'.format(ckc_dir))
     if not expanded:
         return zlegend, logg, logt
     else:
@@ -341,7 +341,7 @@ def ckc_params(expanded=False, zlegend=None, logg=None, logt=None,
 
 
 def wave_from_ssp():
-    out = open('{0}/ckc14.lambda'.format(ckc_dir), 'w')
+    out = open('{0}/fullres/fsps/ckc14/ckc14.lambda'.format(ckc_dir), 'w')
     fname = 'SSP_Padova_CKC14_Salpeter_Z0.0002.out.spec'
     f = open(fname, "r")
     for i in range(9):
