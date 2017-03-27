@@ -20,6 +20,8 @@ __all__ = ["construct_grism_outwave", "initialize_h5",
            "smooth_onez_map", "downsample_allz"] # These 2 get used together
 
 
+tiny_number = 1e-33
+    
 class function_wrapper(object):
     """A hack to make the downsampling function pickleable for MPI.
     """
@@ -64,8 +66,8 @@ def smooth_onez(fullres_hname, resolution=1.0, **conv_pars):
         flores = np.zeros([len(params), len(outwave)])
         for i, p in enumerate(params):
             fhires = fullres['spectra'][i, :]
-            s = smoothing.smoothspec(whires, fhires, resolution,
-                                     outwave=outwave, **conv_pars)
+            s = mappable_smoothspec(fhires, wave=whires, resolution=resolution,
+                                    outwave=outwave, **conv_pars)
             flores[i, :] = s
     gc.collect()
     return outwave, flores, params, None
@@ -73,7 +75,10 @@ def smooth_onez(fullres_hname, resolution=1.0, **conv_pars):
 
 def mappable_smoothspec(flux, wave=None, resolution=None,
                         outwave=None, **extras):
-    """Convert keyword to positional arguments."""
+    """Convert keyword to positional arguments. Also replace floating underflow
+    and NaN with zero"""
+    bad = np.isnan(flux) | (flux < tiny_number)
+    flux[bad] = 0.0
     s = smoothing.smoothspec(wave, flux, resolution,
                              outwave=outwave, **extras)
     return s
