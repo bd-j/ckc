@@ -183,6 +183,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
             if (i % 10) == 0:
                 f.flush()
 
+    print('finished {}'.format(h5name))
     return h5name, len(params)
 
 
@@ -211,14 +212,14 @@ if __name__ == "__main__":
     # --- Metallicities to loop over/map ---
     zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
              -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-             0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
-    afelist = [0.4]
+             0.0, 0.25, 0.5]#, 0.75, 1.0, 1.25, 1.5]
+    afelist = [-0.2]
     #zlist = full_params['feh']
     #zlist = [0.5]
 
     from itertools import product
     metlist = list(product(zlist, afelist))
-    
+    print(len(metlist))
     # ---- Paths and filename templates -----
     ck_vers = 'c3k_v1.3'  # ckc_v1.2
     basedir = '/n/conroyfs1/cconroy/kurucz/grids'
