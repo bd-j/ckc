@@ -11,10 +11,12 @@ wlims_ckc = (900, 40e4) # anstroms
 # Note that smoothspec expects resolution to be defined in terms of sigma, not FWHM
 
 ckc_v1p2 = {'name': 'intrinsic', 'version': 'CKC v1.2',
+            'directory': 'c3k_v1.2',
             'resolution': 1e5, 'res_units': '\lambda/FWHM_\lambda',
             'min_wave_smooth': 900, 'max_wave_smooth':40e4}
 
 c3k_v1p3 = {'name': 'intrinsic', 'version': 'C3K v1.3',
+            'directory': 'c3k_v1.3',
             'resolution': 3e5, 'res_units': '\lambda/\Delta_\lambda',
             'min_wave_smooth': 900, 'max_wave_smooth':2.5e4}
 

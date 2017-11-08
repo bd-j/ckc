@@ -108,6 +108,31 @@ def get_hires_spectrum(filename=None, param=None,
     return full_spec, full_cont, wave
 
 
+def get_lores_spectrum(filename=None, param=None,
+                       fstring='', dstring='', **extras):
+    if filename is None:
+        pars = dict(zip(param_order, param))
+        # hack to get correct g widths
+        pars['g'] = '{:4.2f}'.format(pars['g'])
+        dirname = dstring.format(pars['feh'], pars['afe'])
+        fn = dirname + fstring.format(**pars)
+    else:
+        fn = filename
+
+    if os.path.exists(fn) is False:
+        print('did not find {}'.format(fn))
+        return 0, 0, None
+    with open(fn, "r") as f:
+        lines = f.readlines()
+    dat = [l.replace('\n', '').split() for l in lines[2:]]
+    wave = np.array([float(d[0]) for d in dat])
+    flux = np.array([float(d[1]) for d in dat])
+    #dlam = np.diff(wave)
+    #(wave / dlam).mean()
+
+    return flux, None, wave
+
+
 def existing_params(params, fstring='', dstring=''):
     """Test for the existence of a spec file for each of the
     parameters in the given list, and return a list of only those
@@ -220,12 +245,12 @@ if __name__ == "__main__":
     from itertools import product
     metlist = list(product(zlist, afelist))
     print(len(metlist))
+
     # ---- Paths and filename templates -----
     ck_vers = 'c3k_v1.3'  # ckc_v1.2
     basedir = '/n/conroyfs1/cconroy/kurucz/grids'
     #basedir = 'data/fullres'
 
-    
     hires_dstring = os.path.join(basedir, ck_vers,
                                  "at12_feh{:+3.2f}_afe{:+2.1f}/spec/")
     hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
@@ -233,10 +258,10 @@ if __name__ == "__main__":
     hires_searchstring = os.path.join(hires_dstring, '*spec.gz')
 
     lores_dstring = os.path.join(basedir, ck_vers,
-                                 "at12_feh{:+3.2f}_afe{:+2.1f}/sed/")
+                                 "at12_feh{:+3.2f}_afe{:+2.1f}/flux/")
     lores_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
-                     "t{t:05.0f}g{g:.4s}.sed")
-    lores_searchstring = os.path.join(lores_dstring, '*spec.gz')
+                     "t{t:05.0f}g{g:.4s}.flux")
+    lores_searchstring = os.path.join(lores_dstring, '*flux')
 
     # String to use for looking for files in a given zdirectory
     #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
