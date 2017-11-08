@@ -218,12 +218,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--np", type=int, default=6,
                         help="number of processors")
-    #parser.add_argument("--config", type=str, default='R500',
-    #                    help=("Name of dictionary that describes the "
-    #                          "output spectral parameters"))
-    #parser.add_argument("--hname", type=str, default=htemp_default,
-    #                    help=("A string that gives the full reolution "
-    #                          "h5 file template."))
+    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
+                        help=("Name of directory that contains the "
+                              "version of C3K spectra to use."))
+    parser.add_argument("--spec_type", type=str, default='hires',
+                        help=("Whether to create HDF5 for the full resolution "
+                              "spectra ('hires') or for the low resolution, larger "
+                              "wavelength range .flux files ('lores')"))
+    parser.add_argument("--outdir", type=str, default='./h5/',
+                        help=("Location to store the output."))
+
     args = parser.parse_args()
     
     ncpu = args.np
@@ -247,31 +251,34 @@ if __name__ == "__main__":
     print(len(metlist))
 
     # ---- Paths and filename templates -----
-    ck_vers = 'c3k_v1.3'  # ckc_v1.2
+    ck_vers = arg.ck_vers  # ckc_v1.2 | c3k_v1.3
     basedir = '/n/conroyfs1/cconroy/kurucz/grids'
     #basedir = 'data/fullres'
 
-    hires_dstring = os.path.join(basedir, ck_vers,
-                                 "at12_feh{:+3.2f}_afe{:+2.1f}/spec/")
-    hires_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
-                     "t{t:05.0f}g{g:.4s}.spec.gz")
-    hires_searchstring = os.path.join(hires_dstring, '*spec.gz')
-
-    lores_dstring = os.path.join(basedir, ck_vers,
-                                 "at12_feh{:+3.2f}_afe{:+2.1f}/flux/")
-    lores_fstring = ("at12_feh{feh:+3.2f}_afe{afe:+2.1f}_"
-                     "t{t:05.0f}g{g:.4s}.flux")
-    lores_searchstring = os.path.join(lores_dstring, '*flux')
+    if args.spec_type == 'hires':
+        dirname = 'spec/'
+        ext = '.spec.gz'
+        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
+    elif arg.spec_type == 'lores':
+        dirname = 'flux/'
+        ext = '.flux'
+        h5_outname = os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
+    else:
+        raise(ValueError, "spec_type must be one of 'hires' or 'lores'")
+    
+    dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
+    dstring = os.path.join(basedir, ck_vers, dstring)
+    fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
+    searchstring = os.path.join(hires_dstring, '*'+ext)
 
     # String to use for looking for files in a given zdirectory
     #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
-
+    
     # output
-    h5name = 'h5/'+ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5'
 
     # --- Run -----
-    partial_specset = partial(specset, h5template=h5name, searchstring=hires_searchstring,
-                              dstring=hires_dstring, fstring=hires_fstring)
+    partial_specset = partial(specset, h5template=h5_outname, searchstring=searchstring,
+                              dstring=dstring, fstring=fstring)
     ts = time.time()
     filenames = list(M(partial_specset, list(metlist)))
     dur = time.time() - ts
