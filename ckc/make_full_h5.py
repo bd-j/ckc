@@ -45,7 +45,7 @@ def files_and_params(searchstring='.'):
     # set up parsing tools
     tpat, ts = re.compile(r"_t.{5}"), slice(2, None)
     zpat, zs = re.compile(r"_feh.{5}"), slice(4, None)
-    gpat, gs = re.compile(r"g.{4}.spec.gz"), slice(1, 5)
+    gpat, gs = re.compile(r"g.{4}."), slice(1, 5)
     apat, asl = re.compile(r"_afe.{4}"), slice(4, None)
 
     # parse filenames for parameters
@@ -130,7 +130,7 @@ def get_lores_spectrum(filename=None, param=None,
     #dlam = np.diff(wave)
     #(wave / dlam).mean()
 
-    return flux, None, wave
+    return flux, flux, wave
 
 
 def existing_params(params, fstring='', dstring=''):

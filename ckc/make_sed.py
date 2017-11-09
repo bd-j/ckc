@@ -51,10 +51,10 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340, outname='
             find.append(ind.tolist().index(1))
 
 
-    # Make the output h5 file
+    # Set up the output h5 file
     #stuff here
 
-    # loop over spectra convolving segments and getting the SEDs
+    # loop over spectra convolving segments and getting the SEDs, and putting them in the SED file
     matches = zip(specfile["parameters"][sind], specfile["spectra"][sind], fluxfile["spectra"][find])
     for i, (pars, spec, flux) in enumerate(matches):
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
