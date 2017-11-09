@@ -14,7 +14,7 @@ segments = [(100., 2800., 250.),
             ]
 
 
-def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340):
+def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340, outname=''):
     """
     :params specfile:
         Handle to the HDF5 file containting the high-resolution C3K spectra
@@ -27,7 +27,6 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340):
         A list of 3-tuples describing the wavelength segments and their
         resolution.  Each tuple should have the form (lo, hi, R)
     """
-
     # Wavelength arrays
     swave = np.array(specfile["wavelengths"])
     fwave = np.array(fluxfile["wavelengths"])
@@ -36,20 +35,42 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340):
     outwave = np.array(outwave)
     assert np.all(np.diff(outwave)) > 0, "Output wavelength grid is not scending!"
 
-    # loop over spectra convolving segments and getting the SEDs
+    # Match specfile to fluxfile
+    # this is probably a stupid way to do this.
+    sind, find = [], []
     for i, spec in enumerate(specfile["spectra"]):
         # find the matching flux entry
         params = specfile["parameters"][i]
         ind = np.array([fluxfile["parameters"][f] == params[f]
                         for f in params.dtype.names])
-        ind = ind.prod(axis=0)
+        ind = ind.prod(axis=0).astype(int)
         if ind.sum() != 1:
-            print("could not find flux spectrum @ params {}".format(dict(zip(param_order, params))))
+            print("could not find unique flux spectrum @ params {}".format(dict(zip(param_order, params))))
+        else:
+            sind.append(k)
+            find.append(ind.tolist().index(1))
 
+
+    # Make the output h5 file
+    #stuff here
+
+    # loop over spectra convolving segments and getting the SEDs
+    matches = zip(specfile["parameters"][sind], specfile["spectra"][sind], fluxfile["spectra"][find])
+    for i, (pars, spec, flux) in enumerate(matches):
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
                                  specres=specres, fluxres=fluxres)
         assert len(sed) == len(outwave), ("SED is not the same length as the desired "
                                           "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
+
+        sedout.resize(k+1, axis=0)
+        parsout.resize(k+1, axis=0)
+        sedout[k, :] = sed
+        parsout[k] = pars
+        k += 1
+        outfile.flush()
+
+    outfile.close()
+
 
 def make_one_sed(swave, spec, fwave, flux, segments,
                  specres=3e5, fluxres=):

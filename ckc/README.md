@@ -14,3 +14,5 @@ pars = {'min_wave_smooth':900.,
         'resolution':1e4, # The output resolution, in terms of lambda/fwhm
         'logarithmic':False}
 ```
+
+- `make_sed.py`

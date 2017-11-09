@@ -182,19 +182,25 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
     # skip directories that don't exist
     if len(params) == 0:
         return (h5name, 0)
-        
+
+    # choose which reader to use
+    if fstring.split('.')[-1] == 'flux':
+        get_spectrum = get_lores_spectrum
+    else:
+        get_spectrum = get_hires_spectrum
+    
     nspec, npar = len(params), len(params[0])
     dt = np.dtype(zip(pnames, npar * [np.float]))
     pars = np.empty(nspec, dtype=dt)
     with h5py.File(h5name, 'w') as f:
-        s, c, w = get_hires_spectrum(param=params[0], fstring=fstring, dstring=dstring)
+        s, c, w = get_spectrum(param=params[0], fstring=fstring, dstring=dstring)
         nwave = len(w)
         spec = f.create_dataset('spectra', (nspec, nwave))
         cont = f.create_dataset('continuua', (nspec, nwave))
         pset = f.create_dataset('parameters', data=pars)
         wave = f.create_dataset('wavelengths', data=w)
         for i, p in enumerate(params):
-            s, c, w = get_hires_spectrum(param=p, fstring=fstring, dstring=dstring)
+            s, c, w = get_spectrum(param=p, fstring=fstring, dstring=dstring)
             pset[i] = tuple(transform_params(list(p)))
             if w is None:
                 continue
@@ -204,7 +210,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
             except:
                 spec[i,:] = 0
                 cont[i,:] = 0
-                print('problem storing spectrum @ params {}'.format(dict(zip(param_order, p))))
+                print('problem storing spectrum @ params {}'.format(dict(zip(pnames, p))))
             if (i % 10) == 0:
                 f.flush()
 
@@ -273,7 +279,7 @@ if __name__ == "__main__":
         dirname = 'spec/'
         ext = '.spec.gz'
         h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
-    elif arg.spec_type == 'lores':
+    elif args.spec_type == 'lores':
         dirname = 'flux/'
         ext = '.flux'
         h5_outname = os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
@@ -283,7 +289,7 @@ if __name__ == "__main__":
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
     dstring = os.path.join(basedir, ck_vers, dstring)
     fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
-    searchstring = os.path.join(hires_dstring, '*'+ext)
+    searchstring = os.path.join(dstring, '*'+ext)
 
     # String to use for looking for files in a given zdirectory
     #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
