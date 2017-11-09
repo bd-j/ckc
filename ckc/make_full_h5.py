@@ -24,7 +24,7 @@ full_params = {'t': np.concatenate(t),
 param_order = ['t', 'g', 'feh', 'afe']
 
 
-def param_map(ps):
+def transform_params(ps):
     """Logify Teff
     """
     ps[0] = np.log10(ps[0])
@@ -153,8 +153,8 @@ def existing_params(params, fstring='', dstring=''):
 def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
             fstring='', dstring='', searchstring=None):
     """Make an HDF5 file containing the full resolution spectrum (and
-    continuum) of all the ckc spectra with a given `feh` value.  This function
-    should have minimal kwargs, so it can be easily mapped.
+    continuum) of all the ckc spectra with a given `feh` (and `afe`) value.
+    This function should have minimal kwargs, so it can be easily mapped.
 
     :param z:
         The value of `feh`.
@@ -195,7 +195,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
         wave = f.create_dataset('wavelengths', data=w)
         for i, p in enumerate(params):
             s, c, w = get_hires_spectrum(param=p, fstring=fstring, dstring=dstring)
-            pset[i] = tuple(param_map(list(p)))
+            pset[i] = tuple(transform_params(list(p)))
             if w is None:
                 continue
             try:
@@ -227,6 +227,16 @@ if __name__ == "__main__":
                               "wavelength range .flux files ('lores')"))
     parser.add_argument("--outdir", type=str, default='./h5/',
                         help=("Location to store the output."))
+    parser.add_argument("--basedir", type=str, default='/n/conroyfs1/cconroy/kurucz/grids',
+                        help=("Location of the directories containing different C3K versions."))
+    parser.add_argument("--feh", type=float, default=-99,
+                        help=("The feh value to process.  If < 10.0, then use a "
+                              "list of all feh values that are expected to exist"))
+    parser.add_argument("--afe", type=float, default=-99,
+                        help=("The afe value to process.  If < 10.0, then use a "
+                              "list of all afe values that are expected to exist"))
+    
+
 
     args = parser.parse_args()
     
@@ -236,23 +246,27 @@ if __name__ == "__main__":
     else:
         pool = Pool(ncpu)
         M = pool.map
-    #M = map
 
     # --- Metallicities to loop over/map ---
-    zlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
-             -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-             0.0, 0.25, 0.5]#, 0.75, 1.0, 1.25, 1.5]
-    afelist = [-0.2]
-    #zlist = full_params['feh']
-    #zlist = [0.5]
+    #fehlist = full_params['feh']
+    if args.feh < -10:
+        fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
+                   -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
+                   0.0, 0.25, 0.5]#, 0.75, 1.0, 1.25, 1.5]
+    else:
+        fehlist = [args.feh]
+    if args.afe < -10:
+        afelist = [-0.2, 0.0, 0.4, 0.6]
+    else:
+        afelist = [args.afe]
 
     from itertools import product
-    metlist = list(product(zlist, afelist))
+    metlist = list(product(fehlist, afelist))
     print(len(metlist))
 
     # ---- Paths and filename templates -----
-    ck_vers = arg.ck_vers  # ckc_v1.2 | c3k_v1.3
-    basedir = '/n/conroyfs1/cconroy/kurucz/grids'
+    ck_vers = args.ck_vers  # ckc_v1.2 | c3k_v1.3
+    basedir = args.basedir
     #basedir = 'data/fullres'
 
     if args.spec_type == 'hires':
@@ -273,8 +287,6 @@ if __name__ == "__main__":
 
     # String to use for looking for files in a given zdirectory
     #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
-    
-    # output
 
     # --- Run -----
     partial_specset = partial(specset, h5template=h5_outname, searchstring=searchstring,

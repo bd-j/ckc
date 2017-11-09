@@ -2,6 +2,10 @@ import numpy as np
 import h5py
 from prospect.utils.smoothing import smoothspec
 
+
+param_order = ['logt', 'logg', 'feh', 'afe']
+
+
 # lambda_lo, lambda_hi, R_{out, fwhm}
 segments = [(100., 2800., 250.),
             (2800., 7000., 5000.,),
@@ -33,7 +37,15 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340):
     assert np.all(np.diff(outwave)) > 0, "Output wavelength grid is not scending!"
 
     # loop over spectra convolving segments and getting the SEDs
-    for i, spec, flux in enumerate(zip(specfile["spectra"], fluxfile["spectra"])):
+    for i, spec in enumerate(specfile["spectra"]):
+        # find the matching flux entry
+        params = specfile["parameters"][i]
+        ind = np.array([fluxfile["parameters"][f] == params[f]
+                        for f in params.dtype.names])
+        ind = ind.prod(axis=0)
+        if ind.sum() != 1:
+            print("could not find flux spectrum @ params {}".format(dict(zip(param_order, params))))
+
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
                                  specres=specres, fluxres=fluxres)
         assert len(sed) == len(outwave), ("SED is not the same length as the desired "
