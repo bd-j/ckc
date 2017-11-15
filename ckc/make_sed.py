@@ -1,6 +1,6 @@
 import numpy as np
-import h5py
-from prospect.utils.smoothing import smoothspec
+import h5py, json
+from prospect.utils.smoothing import smoothspec, construct_outwave
 
 
 param_order = ['logt', 'logg', 'feh', 'afe']
@@ -14,7 +14,7 @@ segments = [(100., 2800., 250.),
             ]
 
 
-def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340, outname=''):
+def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, outname=''):
     """
     :params specfile:
         Handle to the HDF5 file containting the high-resolution C3K spectra
@@ -27,15 +27,16 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340, outname='
         A list of 3-tuples describing the wavelength segments and their
         resolution.  Each tuple should have the form (lo, hi, R)
     """
-    # Wavelength arrays
+    # --- Wavelength arrays ----
     swave = np.array(specfile["wavelengths"])
     fwave = np.array(fluxfile["wavelengths"])
-    outwave = [construct_outwave(lo, hi, rout, logarithmic=True, oversample=2)[:-1]
+    outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=2)[:-1]
                for (lo, hi, rout) in segments]
-    outwave = np.array(outwave)
-    assert np.all(np.diff(outwave)) > 0, "Output wavelength grid is not scending!"
+    outwave = np.concatenate(outwave)
+    assert np.all(np.diff(outwave) > 0), "Output wavelength grid is not scending!"
+    nw = len(outwave)
 
-    # Match specfile to fluxfile
+    # --- Match specfile to fluxfile ----
     # this is probably a stupid way to do this.
     sind, find = [], []
     for i, spec in enumerate(specfile["spectra"]):
@@ -47,33 +48,42 @@ def make_seds(specfile, fluxfile, segments, specres=3e5, fluxres=4340, outname='
         if ind.sum() != 1:
             print("could not find unique flux spectrum @ params {}".format(dict(zip(param_order, params))))
         else:
-            sind.append(k)
+            sind.append(i)
             find.append(ind.tolist().index(1))
+    sind = np.array(sind)
+    find = np.array(find)
 
+    # --- Setup the output h5 file ---
+    out = h5py.File(outname, "w")
+    partype = specfile["parameters"].dtype
+    sedout = out.create_dataset('spectra', shape=(0, nw),
+                                 maxshape=(None, nw))
+    parsout = out.create_dataset('parameters', shape=(0,),
+                                maxshape=(None,), dtype=partype)
+    wavelength = out.create_dataset('wavelengths', data=outwave)
+    out.attrs["segments"] = json.dumps(segments)
 
-    # Set up the output h5 file
-    #stuff here
-
-    # loop over spectra convolving segments and getting the SEDs, and putting them in the SED file
+    #  --- Fill H5 file ---
+    # loop over spectra convolving segments and getting the SEDs, and putting
+    # them in the SED file
     matches = zip(specfile["parameters"][sind], specfile["spectra"][sind], fluxfile["spectra"][find])
     for i, (pars, spec, flux) in enumerate(matches):
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
                                  specres=specres, fluxres=fluxres)
-        assert len(sed) == len(outwave), ("SED is not the same length as the desired "
-                                          "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
+        assert len(sed) == nw, ("SED is not the same length as the desired "
+                                "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
 
-        sedout.resize(k+1, axis=0)
-        parsout.resize(k+1, axis=0)
-        sedout[k, :] = sed
-        parsout[k] = pars
-        k += 1
-        outfile.flush()
+        sedout.resize(i+1, axis=0)
+        parsout.resize(i+1, axis=0)
+        sedout[i, :] = sed
+        parsout[i] = pars
+        out.flush()
 
-    outfile.close()
+    out.close()
 
 
-def make_one_sed(swave, spec, fwave, flux, segments,
-                 specres=3e5, fluxres=):
+def make_one_sed(swave, spec, fwave, flux, segments=segments,
+                 specres=3e5, fluxres=500):
     sed = []
     outwave = []
     for j, (lo, hi, rout) in enumerate(segments):
@@ -100,3 +110,23 @@ def make_one_sed(swave, spec, fwave, flux, segments,
         outwave.append(out)
 
     return np.concatenate(outwave), np.concatenate(sed)
+
+
+
+def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
+                      dispersion=1.0, oversample=2.0,
+                      resolution=3e5, logarithmic=False,
+                      **extras):
+    """Given parameters describing the output spectrum, generate a wavelength
+    grid that properly samples the resolution.
+    """
+    if logarithmic:
+        # critically sample the resolution
+        dlnlam = 1.0 / resolution / oversample  
+        lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
+        #print(lnmin, lnmax, dlnlam, resolution, oversample)
+        out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
+    else:
+        out = np.arange(min_wave_smooth, max_wave_smooth,
+                        dispersion / oversample)
+    return out    

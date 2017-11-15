@@ -22,6 +22,8 @@ full_params = {'t': np.concatenate(t),
                }
 
 param_order = ['t', 'g', 'feh', 'afe']
+pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
+pnames = [pname_map[p] for p in param_order]
 
 
 def transform_params(ps):
@@ -29,9 +31,6 @@ def transform_params(ps):
     """
     ps[0] = np.log10(ps[0])
     return tuple(ps)
-
-pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
-pnames = [pname_map[p] for p in param_order]
 
 
 def files_and_params(searchstring='.'):
@@ -150,6 +149,14 @@ def existing_params(params, fstring='', dstring=''):
     return exists
 
 
+def get_lores_wavegrid(params, fstring, dstring):
+    wave = []
+    for i, p in enumerate(params):
+        s, c, w = get_lores_spectrum(param=p, fstring=fstring, dstring=dstring)
+        wave = np.unique(np.concatenate([wave, w]))
+    return np.sort(wave)
+
+
 def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
             fstring='', dstring='', searchstring=None):
     """Make an HDF5 file containing the full resolution spectrum (and
@@ -183,27 +190,32 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
     if len(params) == 0:
         return (h5name, 0)
 
-    # choose which reader to use
-    if fstring.split('.')[-1] == 'flux':
+    # choose which reader to use and get the wavelength grid
+    lores = fstring.split('.')[-1] == 'flux'
+    if lores:
         get_spectrum = get_lores_spectrum
+        wave = get_lores_wavegrid(params, fstring, dstring)
     else:
         get_spectrum = get_hires_spectrum
-    
-    nspec, npar = len(params), len(params[0])
+        _, _, wave = get_spectrum(param=params[0], fstring=fstring, dstring=dstring)
+
+    # Build and fill the output HDF5 file
+    nspec, nwave, npar = len(params), len(wave), len(params[0])
     dt = np.dtype(zip(pnames, npar * [np.float]))
     pars = np.empty(nspec, dtype=dt)
     with h5py.File(h5name, 'w') as f:
-        s, c, w = get_spectrum(param=params[0], fstring=fstring, dstring=dstring)
-        nwave = len(w)
         spec = f.create_dataset('spectra', (nspec, nwave))
         cont = f.create_dataset('continuua', (nspec, nwave))
         pset = f.create_dataset('parameters', data=pars)
-        wave = f.create_dataset('wavelengths', data=w)
+        wave = f.create_dataset('wavelengths', data=wave)
         for i, p in enumerate(params):
             s, c, w = get_spectrum(param=p, fstring=fstring, dstring=dstring)
             pset[i] = tuple(transform_params(list(p)))
             if w is None:
                 continue
+            if lores:
+                s = np.interp(wave, w, s, left=0., right=0.)
+                c = 0.
             try:
                 spec[i,:] = s
                 cont[i,:] = c
