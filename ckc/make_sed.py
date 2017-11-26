@@ -1,17 +1,27 @@
+# Module for producing full range spectra from c3k .spec and .flux files (or
+# rather their hdf5 versions)
+# This involves convolving the appropriate spectra by the appropriate amounts
+# for a set of segements and stitching them together.
+# Note that the .flux files actually are top-hat filtered versions of the
+# spectra, with the value at each point giving the sum of total flux within
+# some +/- from that point, and have some weird effective resolution.
 import numpy as np
 import h5py, json
-from prospect.utils.smoothing import smoothspec, construct_outwave
+from prospect.utils.smoothing import smoothspec
 
 
 param_order = ['logt', 'logg', 'feh', 'afe']
 
 
-# lambda_lo, lambda_hi, R_{out, fwhm}
-segments = [(100., 2800., 250.),
-            (2800., 7000., 5000.,),
-            (7000., 2.5e4, 500.),
-            (2.5e4, 1e8, 50.)
+# lambda_lo, lambda_hi, R_{out, fwhm}, use_fft
+segments = [(100., 910., 250., False),
+            (910., 2800., 250., False), 
+            (2800., 7000., 5000., True),
+            (7000., 2.0e4, 500., True),
+            (2.0e4, 1e8, 50., False)
             ]
+
+sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2.))
 
 
 def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, outname=''):
@@ -31,9 +41,9 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
     swave = np.array(specfile["wavelengths"])
     fwave = np.array(fluxfile["wavelengths"])
     outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=2)[:-1]
-               for (lo, hi, rout) in segments]
+               for (lo, hi, rout, _) in segments]
     outwave = np.concatenate(outwave)
-    assert np.all(np.diff(outwave) > 0), "Output wavelength grid is not scending!"
+    assert np.all(np.diff(outwave) > 0), "Output wavelength grid is not ascending!"
     nw = len(outwave)
 
     # --- Match specfile to fluxfile ----
@@ -62,12 +72,15 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
                                 maxshape=(None,), dtype=partype)
     wavelength = out.create_dataset('wavelengths', data=outwave)
     out.attrs["segments"] = json.dumps(segments)
+    out.attrs["segments_desc"] = "(lo, hi, R_fwhm, FFT)"
 
     #  --- Fill H5 file ---
     # loop over spectra convolving segments and getting the SEDs, and putting
     # them in the SED file
-    matches = zip(specfile["parameters"][sind], specfile["spectra"][sind], fluxfile["spectra"][find])
-    for i, (pars, spec, flux) in enumerate(matches):
+    #matches = zip(specfile["parameters"][sind], specfile["spectra"][sind, :], fluxfile["spectra"][find, :])
+    for i, (s, f) in enumerate(zip(sind, find)):
+        spec = specfile["spectra"][s, :]
+        flux = fluxfile["spectra"][f, :]
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
                                  specres=specres, fluxres=fluxres)
         assert len(sed) == nw, ("SED is not the same length as the desired "
@@ -76,41 +89,54 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
         sedout.resize(i+1, axis=0)
         parsout.resize(i+1, axis=0)
         sedout[i, :] = sed
-        parsout[i] = pars
+        parsout[i] = specfile["parameters"][s]
         out.flush()
 
     out.close()
 
 
 def make_one_sed(swave, spec, fwave, flux, segments=segments,
-                 specres=3e5, fluxres=500):
+                 specres=3e5, fluxres=500, oversample=2):
     sed = []
     outwave = []
-    for j, (lo, hi, rout) in enumerate(segments):
+    for j, (lo, hi, rout, fftsmooth) in enumerate(segments):
         # get the output wavelength vector for this segment, throwing away
         # the last point (which will be the same as the first of the next
         # segment)
-        out = construct_outwave(lo, hi, rout, logarithmic=True, oversample=2)[:-1]
-        # do we use the highres or lores spectrum?
+        out = construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=oversample)[:-1]
+        # Do we use the hires or lores spectrum?
         if (lo > swave.min()) and (hi < swave.max()):
             inspec = spec
             inres = specres
             inwave = swave
+            print("using hires for {} - {} @ R={}".format(lo, hi, rout))
         else:
             inspec = flux
             inres = fluxres
             inwave = fwave
-        assert rout < inres, "You are trying to smooth to a higher resolution than C3K provides!"
+            print("using lores for {} - {} @ R={}".format(lo, hi, rout))
+
+        if fftsmooth:
+            print("using FFT")
+        assert rout <= inres, "You are trying to smooth to a higher resolution than C3K provides!"
         # account for C3K resolution
         rsmooth = (rout**(-2.) - inres**(-2))**(-0.5)
         # convert to lambda/sigma_lambda
-        rsmooth *= sigma_to_fwhm  
-        s = smoothspec(inwave, inspec, rsmooth, smoothtype="R", outwave=out)
+        rsmooth *= sigma_to_fwhm
+        s = smoothspec(inwave, inspec, rsmooth, smoothtype="R", outwave=out, fftsmooth=fftsmooth)
+
         sed.append(s)
         outwave.append(out)
 
-    return np.concatenate(outwave), np.concatenate(sed)
+    outwave = np.concatenate(outwave)
+    sed = np.concatenate(sed)
+    # now replace the lambda > fwave.max() (plus some padding) with a BB
+    fwave_max = np.max(fwave[flux > 0])
+    ind_max = np.searchsorted(outwave, fwave_max)
+    sed[ind_max-9:] = sed[ind_max - 10] * (outwave[ind_max - 10] / outwave[ind_max-9:])**2
 
+
+    return outwave, sed
 
 
 def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
@@ -130,3 +156,14 @@ def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
         out = np.arange(min_wave_smooth, max_wave_smooth,
                         dispersion / oversample)
     return out    
+
+
+
+if __name__ == "__main__":
+
+    specfile = h5py.File("fullres/c3k/c3k_v1.3_feh+0.00_afe+0.0.full.h5", "r")
+    fluxfile = h5py.File("fullres/c3k/c3k_v1.3_feh+0.00_afe+0.0.flux.h5", "r")
+    outname = "c3k_v1.3_feh+0.00_afe+0.0.sed.h5"
+    
+
+    make_seds(specfile, fluxfile, fluxres=5e3, outname=outname)

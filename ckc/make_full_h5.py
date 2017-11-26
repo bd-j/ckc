@@ -126,7 +126,7 @@ def get_lores_spectrum(filename=None, param=None,
     dat = [l.replace('\n', '').split() for l in lines[2:]]
     wave = np.array([float(d[0]) for d in dat])
     flux = np.array([float(d[1]) for d in dat])
-    #dlam = np.diff(wave)
+    #dlam = np.grad(wave)
     #(wave / dlam).mean()
 
     return flux, flux, wave
@@ -164,7 +164,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
     This function should have minimal kwargs, so it can be easily mapped.
 
     :param z:
-        The value of `feh`.
+        Two element sequence giving the value of `feh` and `afe`.
 
     :param h5template:
         The oputput h5 name template
@@ -278,7 +278,6 @@ if __name__ == "__main__":
     else:
         afelist = [args.afe]
 
-    from itertools import product
     metlist = list(product(fehlist, afelist))
     print(len(metlist))
 
