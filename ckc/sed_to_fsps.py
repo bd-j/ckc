@@ -95,7 +95,7 @@ def rectify_sed(sedfile):
     newpars = np.zeros(sel.sum, dtype=params.dtype)
     
 
-def interpolate_to_basel(charlie, interpolator, valid=True, plot=None):
+def interpolate_to_basel(charlie, interpolator, valid=True, plot=None, renorm=True):
 
     bwave = interpolator.wavelengths
     if plot is not None:
@@ -118,8 +118,9 @@ def interpolate_to_basel(charlie, interpolator, valid=True, plot=None):
         # could use `or` except for normalization - need a valid sample.
         if (v and (len(inds) > 1)):
             _, bspec, _ = interpolator.get_star_spectrum(**dict_struct(p))
-            norm, bspec = renorm([bwave, bspec], [cwave, cspec[i,:]])
-            if wghts.max() < 1.0:
+            if renorm:
+                norm, bspec = renorm([bwave, bspec], [cwave, cspec[i,:]])
+            if (wghts.max() < 1.0) & (plot is not None):
                 fig, ax = plot_interp(cwave, cspec[i,:], bspec, inds, wghts, interpolator)
                 ax.set_title(title + ", norm={:4.3f}".format(norm))
                 ax.legend()
@@ -130,25 +131,29 @@ def interpolate_to_basel(charlie, interpolator, valid=True, plot=None):
         # valid *and* (out-hull or extremeg)
         elif (v and (len(inds) == 1)):
             bspec = interpolator._spectra[inds, :]
-            norm, bspec = renorm([bwave, bspec], [cwave, cspec[i,:]])
-            fig, ax = plot_interp(cwave, cspec[i,:], bspec, inds, wghts, interpolator)
-            ax.set_title(title + ", norm={:4.3f}".format(norm))
-            ax.legend()
-            if ex_g:
-                extreme.append(i)
-                ex_pdf.savefig(fig)
-            else:
-                outside.append(i)
-                out_pdf.savefig(fig)
-            pl.close(fig)
+            if renorm:
+                norm, bspec = renorm([bwave, bspec], [cwave, cspec[i,:]])
+            if plot is not None:
+                fig, ax = plot_interp(cwave, cspec[i,:], bspec, inds, wghts, interpolator)
+                ax.set_title(title + ", norm={:4.3f}".format(norm))
+                ax.legend()
+                if ex_g:
+                    extreme.append(i)
+                    ex_pdf.savefig(fig)
+                else:
+                    outside.append(i)
+                    out_pdf.savefig(fig)
+                pl.close(fig)
         # not valid
         else:
             bspec = np.zeros_like(interpolator.wavelengths) + 1e-33
         allspec.append(bspec)
-        
-    out_pdf.close()
-    in_pdf.close()
-    ex_pdf.close()
+
+    if plot is not None:
+        out_pdf.close()
+        in_pdf.close()
+        ex_pdf.close()
+
     return interpolator.wavelengths, np.array(allspec), [outside, inside, extreme]
 
 
@@ -237,44 +242,8 @@ def extremeg(interpolator, pars):
     ggrid = np.unique(interpolator._libparams["logg"][thist])
     return (pars["logg"] < ggrid.min()) or (pars["logg"] > ggrid.max())
 
-    
-if __name__ == "__main__":
-    zsol = 0.0134
-    feh = 0.0
-    afe = 0.0
 
-    metname = "feh{:+3.2f}_afe{:+2.1f}".format(feh, afe)
-    sedfile = 'c3k_v1.3_{}.sed.h5'.format(metname)
-    z = zsol * 10**feh
-    outname = 'c3k_legac_z{:1.4f}.spectra.bin'.format(z)
-    basel_pars = get_basel_params()
-
-    # Charlie's interpolation
-    cwave, cspec, valid = get_binary_spec(len(basel_pars), zstr="0.0134",
-                                         speclib='CKC14/ckc14')
-    # My interpolator
-    interpolator = StarBasis(sedfile, use_params=['logg', 'logt'], logify_Z=False,
-                             n_neighbors=1, verbose=False, rescale_libparams=True)
-    #interpolator = BigStarBasis(sedfile, use_params=['logg', 'logt'], logify_Z=False,
-    #                            n_neighbors=1, verbose=True)
-
-    bwave = interpolator.wavelengths
-
-
-    # comparison at solar
-    #fig, ax = compare_at([basel_pars, cwave, cspec], interpolator)
-    # comparison at tp-agb
-    #fig, ax = compare_at([basel_pars, cwave, cspec], interpolator,
-    #                     logg=-0.51, logt=np.log10(3500.), show_components=True)
-    # hot star
-    #fig, ax = compare_at([basel_pars, cwave, cspec], interpolator,
-    #                     logg=5.5, logt=np.log10(10000.), show_components=True)
-    
-    #sys.exit()
-    
-    bwave, bspec, inds = interpolate_to_basel([basel_pars, cwave, cspec], interpolator,
-                                            valid=valid, plot="interp_{}.pdf".format(metname))
-
+def show_coverage(basel_pars, libparams, inds):
     false = np.zeros(len(basel_pars), dtype=bool)
     o, i, e = inds
     out, interp, extreme = false.copy(), false.copy(), false.copy() 
@@ -294,9 +263,71 @@ if __name__ == "__main__":
             label="interpolated")
     ax.plot(basel_pars["logt"][extreme], basel_pars["logg"][extreme], 'o',
             label="nearest (t, g)")
-    ax.plot(interpolator._libparams["logt"], interpolator._libparams["logg"], 'ko', alpha=0.3, label="C3K") 
+    ax.plot(libparams["logt"], libparams["logg"], 'ko', alpha=0.3, label="C3K") 
     ax.invert_yaxis()
     ax.invert_xaxis()
-    ax.legend(loc=0)
+    #ax.legend(loc=0)
 
-    fig.savefig("coverage_{}.pdf".format(metname))
+    return fig, ax
+
+
+    
+if __name__ == "__main__":
+
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--feh", type=float, default=0.0,
+                        help=("The feh value to process."))
+    parser.add_argument("--afe", type=float, default=0.0,
+                        help=("The afe value to process."))
+    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
+                        help=("Name of directory that contains the "
+                              "version of C3K spectra to use."))
+    parser.add_argument("--basedir", type=str, default='fullres/c3k/',
+                        help=("Path to the directory containing sed HDF5 "
+                              "flux files. Output will be placed here too."))
+    parser.add_argument("--sedname", type=str, default="sed",
+                        help=("nickname for the SED file, e.g. sedR500"))
+    parser.add_argument("--outname", type=str, default="",
+                        help=("Full name and path to the output fsps HDF5 file."))
+    parser.add_argument("--zsol", type=float, default=0.0134,
+                        help=("Name of directory that contains the "
+                              "version of C3K spectra to use."))
+    parser.add_argument("--renorm", type=bool, default=False,
+                        help=("Whether to renormalize fluxes to the existing file."))
+    parser.add_argument("--show_coverage", type=bool, default=False,
+                        help=("Whether to make a coverage figure."))
+
+    args = parser.parse_args()
+    
+    # --- Filenames ---
+    z = args.zsol * 10**args.feh
+    zstr = "{:1.4f}".format(z)
+
+    template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
+    sedfile = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.sedname)
+    outname = 'c3k_legac_z{:1.4f}.spectra.bin'.format(z)
+
+    metname = "feh{:+3.2f}_afe{:+2.1f}".format(args.feh, args.afe)
+    plot = "interp_{}.pdf".format(metname)
+
+    # --- Charlie's interpolation ---
+    basel_pars = get_basel_params()
+    cwave, cspec, valid = get_binary_spec(len(basel_pars), zstr=zstr,
+                                         speclib='CKC14/ckc14')
+    # --- My interpolator ---
+    interpolator = StarBasis(sedfile, use_params=['logg', 'logt'], logify_Z=False,
+                             n_neighbors=1, verbose=False, rescale_libparams=True)
+
+    # --- Do the interpolation ---
+    bwave, bspec, inds = interpolate_to_basel([basel_pars, None, None], interpolator,
+                                              valid=valid, renorm=args.renorm,
+                                              plot=None)
+
+
+    
+    if args.show_coverage:
+        fig, ax = show_coverage(basel_pars, inds, interpolator._libparams)
+        ax.legend(loc=0)
+        fig.savefig("coverage_{}.pdf".format(metname))

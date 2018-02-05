@@ -248,10 +248,10 @@ if __name__ == "__main__":
     parser.add_argument("--basedir", type=str, default='/n/conroyfs1/cconroy/kurucz/grids',
                         help=("Location of the directories containing different C3K versions."))
     parser.add_argument("--feh", type=float, default=-99,
-                        help=("The feh value to process.  If < 10.0, then use a "
+                        help=("The feh value to process.  If < -10.0, then use a "
                               "list of all feh values that are expected to exist"))
     parser.add_argument("--afe", type=float, default=-99,
-                        help=("The afe value to process.  If < 10.0, then use a "
+                        help=("The afe value to process.  If < -10.0, then use a "
                               "list of all afe values that are expected to exist"))
     
 

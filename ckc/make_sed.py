@@ -34,8 +34,9 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
         spectra, which is assumed matched line by line to the specfile
 
     :params segments:
-        A list of 3-tuples describing the wavelength segments and their
-        resolution.  Each tuple should have the form (lo, hi, R)
+        A list of 4-tuples describing the wavelength segments and their
+        resolution, and whether to use FFT (not recommended near the edge o the
+        hires file).  Each tuple should have the form (lo, hi, R, bool)
     """
     # --- Wavelength arrays ----
     swave = np.array(specfile["wavelengths"])
@@ -162,9 +163,44 @@ def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
 
 if __name__ == "__main__":
 
-    specfile = h5py.File("fullres/c3k/c3k_v1.3_feh+0.00_afe+0.0.full.h5", "r")
-    fluxfile = h5py.File("fullres/c3k/c3k_v1.3_feh+0.00_afe+0.0.flux.h5", "r")
-    outname = "c3k_v1.3_feh+0.00_afe+0.0.sed.h5"
-    
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--feh", type=float, default=0.0,
+                        help=("The feh value to process."))
+    parser.add_argument("--afe", type=float, default=0.0,
+                        help=("The afe value to process."))
+    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
+                        help=("Name of directory that contains the "
+                              "version of C3K spectra to use."))
+    parser.add_argument("--basedir", type=str, default='fullres/c3k/',
+                        help=("Path to the directory containing fullres and "
+                              "flux HDF5 files. Output will be placed here too."))
+    parser.add_argument("--sedname", type=str, default="sed",
+                        help=("nickname for the SED file, e.g. sedR500"))
+    #parser.add_argument("--specname", type=str, default="",
+    #                    help=("Full name and path to the spec HDF5 file."))
+    #parser.add_argument("--fluxname", type=str, default="",
+    #                    help=("Full name and path to the flux HDF5 file."))
 
-    make_seds(specfile, fluxfile, fluxres=5e3, outname=outname)
+    args = parser.parse_args()
+
+    # --- Filenames ----
+    template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
+    specname = template.format(args.basedir, args.ck_vers, args.feh, args.afe, "full")
+    fluxname = template.format(args.basedir, args.ck_vers, args.feh, args.afe, "flux")
+    outname = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.sedname)
+
+    msg = "Reading from {}\nReading from {}\nWriting to {}".format(specname, fluxname, outname)
+    print(msg)
+
+    # --- Wavelength segments ---
+    segments = segments
+    msg = "Using the following parameters:\n"
+    for seg in segments:
+        msg += "lo={}AA, hi={}AA, R_fwhm={}, FFT={}\n".format(*seg)
+    print(msg)
+
+    # --- Read Files and make the sed file ---
+    specfile = h5py.File(specname, "r")
+    fluxfile = h5py.File(fluxname, "r")
+    make_seds(specfile, fluxfile, fluxres=5e3, outname=outname, segments=segments)
