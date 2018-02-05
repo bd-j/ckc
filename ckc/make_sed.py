@@ -86,6 +86,7 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
         assert len(sed) == nw, ("SED is not the same length as the desired "
                                 "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
 
+        sed[np.isnan(sed)] = 0.0
         sedout.resize(i+1, axis=0)
         parsout.resize(i+1, axis=0)
         sedout[i, :] = sed
