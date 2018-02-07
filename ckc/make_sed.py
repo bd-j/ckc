@@ -24,7 +24,9 @@ segments = [(100., 910., 250., False),
 sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2.))
 
 
-def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, outname=''):
+def make_seds(specfile, fluxfile, segments=segments,
+              specres=3e5, fluxres=500, outname=None,
+              verbose=True):
     """
     :params specfile:
         Handle to the HDF5 file containting the high-resolution C3K spectra
@@ -65,16 +67,20 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
     find = np.array(find)
 
     # --- Setup the output h5 file ---
-    out = h5py.File(outname, "w")
-    partype = specfile["parameters"].dtype
-    sedout = out.create_dataset('spectra', shape=(0, nw),
-                                 maxshape=(None, nw))
-    parsout = out.create_dataset('parameters', shape=(0,),
-                                maxshape=(None,), dtype=partype)
-    wavelength = out.create_dataset('wavelengths', data=outwave)
-    out.attrs["segments"] = json.dumps(segments)
-    out.attrs["segments_desc"] = "(lo, hi, R_fwhm, FFT)"
-
+    if outname is not None:
+        out = h5py.File(outname, "w")
+        partype = specfile["parameters"].dtype
+        sedout = out.create_dataset('spectra', shape=(0, nw),
+                                    maxshape=(None, nw))
+        parsout = out.create_dataset('parameters', shape=(0,),
+                                    maxshape=(None,), dtype=partype)
+        wavelength = out.create_dataset('wavelengths', data=outwave)
+        out.attrs["segments"] = json.dumps(segments)
+        out.attrs["segments_desc"] = "(lo, hi, R_fwhm, FFT)"
+    else:
+        sedout = np.zeros([nsed, nw])
+        parsout = np.zeros([nsed], dtype=partype)
+        
     #  --- Fill H5 file ---
     # loop over spectra convolving segments and getting the SEDs, and putting
     # them in the SED file
@@ -88,13 +94,18 @@ def make_seds(specfile, fluxfile, segments=segments, specres=3e5, fluxres=500, o
                                 "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
 
         sed[np.isnan(sed)] = 0.0
-        sedout.resize(i+1, axis=0)
-        parsout.resize(i+1, axis=0)
+        if outname is not None:
+            sedout.resize(i+1, axis=0)
+            parsout.resize(i+1, axis=0)
         sedout[i, :] = sed
         parsout[i] = specfile["parameters"][s]
-        out.flush()
+        #out.flush()
 
-    out.close()
+    if outname is not None:
+        out.close()
+        return
+    else:
+        return np.array(parsout), np.array(sedout)
 
 
 def make_one_sed(swave, spec, fwave, flux, segments=segments,
@@ -111,15 +122,17 @@ def make_one_sed(swave, spec, fwave, flux, segments=segments,
             inspec = spec
             inres = specres
             inwave = swave
-            print("using hires for {} - {} @ R={}".format(lo, hi, rout))
+            msg = "using hires for {} - {} @ R={}".format(lo, hi, rout)
         else:
             inspec = flux
             inres = fluxres
             inwave = fwave
-            print("using lores for {} - {} @ R={}".format(lo, hi, rout))
+            msg = "using lores for {} - {} @ R={}".format(lo, hi, rout)
 
         if fftsmooth:
-            print("using FFT")
+            msg = "; using FFT"
+        if verbose:
+            print(msg)
         assert rout <= inres, "You are trying to smooth to a higher resolution than C3K provides!"
         # account for C3K resolution
         rsmooth = (rout**(-2.) - inres**(-2))**(-0.5)

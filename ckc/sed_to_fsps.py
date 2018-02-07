@@ -1,11 +1,9 @@
 # Module for converting single metallicity SED files in HDF format to the
 # parameters and binary format expected by fsps
-import sys, os, struct
+import sys, os
 from itertools import product
 import numpy as np
 
-import matplotlib.pyplot as pl
-from matplotlib.backends.backend_pdf import PdfPages
 import h5py
 
 from prospect.sources import StarBasis, BigStarBasis
@@ -51,17 +49,6 @@ def get_binary_spec(ngrid, zstr="0.0200", speclib="BaSeL3.1/basel"):
     return wave, ss, valid
 
 
-def disp_param(par):
-    return ' '.join([str(p) for p in par])
-
-
-def sed_to_bin(sedfile, outname):
-
-    with open(outname, "wb") as outfile:
-            for flux in bspec:
-                outfile.write(struct.pack('f', flux))
-
-
 def renorm(spec, normed_spec, wlo=5e3, whi=2e4):
 
     w, f = spec
@@ -95,10 +82,13 @@ def rectify_sed(sedfile):
     newpars = np.zeros(sel.sum, dtype=params.dtype)
     
 
-def interpolate_to_basel(charlie, interpolator, valid=True, plot=None, renorm=True):
+def interpolate_to_basel(charlie, interpolator, valid=True, plot=None,
+                         renorm=False, verbose=True):
 
     bwave = interpolator.wavelengths
     if plot is not None:
+        import matplotlib.pyplot as pl
+        from matplotlib.backends.backend_pdf import PdfPages
         out_pdf = PdfPages('out'+plot)
         in_pdf = PdfPages('in'+plot)
         ex_pdf = PdfPages('ex'+plot)
@@ -110,7 +100,8 @@ def interpolate_to_basel(charlie, interpolator, valid=True, plot=None, renorm=Tr
         title = "target: {logt:4.3f}, {logg:3.2f}".format(**dict_struct(p))
         inds, wghts = interpolator.weights(**dict_struct(p))
         ex_g = extremeg(interpolator, p)
-        print(i, p, v, ex_g, len(inds))
+        if verbose:
+            print(i, p, v, ex_g, len(inds))
         if ex_g and v:
             inds, wghts = nearest_tg(interpolator, p)
 
@@ -147,7 +138,7 @@ def interpolate_to_basel(charlie, interpolator, valid=True, plot=None, renorm=Tr
         # not valid
         else:
             bspec = np.zeros_like(interpolator.wavelengths) + 1e-33
-        allspec.append(bspec)
+        allspec.append(np.squeeze(bspec))
 
     if plot is not None:
         out_pdf.close()
@@ -158,11 +149,6 @@ def interpolate_to_basel(charlie, interpolator, valid=True, plot=None, renorm=Tr
 
 
 def comp_text(inds, wghts, interpolator):
-    #if type(target) is not dict:
-    #    target = dict_struct(target)
-    #inds, wghts = interpolator.weights(**target)
-    #hdr = 'wght   ' + ' '.join(interpolator.stellar_pars)
-    #txt = "target: {logt:4.3f} {logg:3.2f}".format(**target)
     txt = ""
     for i, w in zip(inds, wghts):
         cd = dict_struct(interpolator._libparams[i])
@@ -174,6 +160,7 @@ def comp_text(inds, wghts, interpolator):
 def plot_interp(cwave, cflux, bflux, inds, wghts, interpolator,
                 show_components=True, renorm_pars={}):
 
+    import matplotlib.pyplot as pl
     bwave = interpolator.wavelengths
     _, bs = renorm([bwave, bflux], [cwave, cflux], **renorm_pars)
     fig, ax = pl.subplots()
@@ -217,7 +204,8 @@ def compare_at(charlie, interpolator, logg=4.5, logt=np.log10(5750.),
 
 
 def nearest_tg(interpolator, pars):
-    """Do nearest neighbor but, first find the nearest logt then the nearest logg
+    """Do nearest neighbor but, first find the nearest logt and only then the
+    nearest logg
     """
     tgrid = np.unique(interpolator._libparams["logt"])
     tt = tgrid[np.argmin(abs(tgrid - pars["logt"]))]
@@ -251,7 +239,8 @@ def show_coverage(basel_pars, libparams, inds):
     interp[i] = True
     extreme[e] = True
     exact = (valid & (~out) & (~interp) & (~extreme))
-    
+
+    import matplotlib.pyplot as pl
     fig, ax = pl.subplots()
     ax.plot(basel_pars["logt"], basel_pars["logg"], 'o', alpha=0.2,
             label="BaSeL grid")
@@ -271,7 +260,6 @@ def show_coverage(basel_pars, libparams, inds):
     return fig, ax
 
 
-    
 if __name__ == "__main__":
 
 
@@ -286,14 +274,13 @@ if __name__ == "__main__":
                               "version of C3K spectra to use."))
     parser.add_argument("--basedir", type=str, default='fullres/c3k/',
                         help=("Path to the directory containing sed HDF5 "
-                              "flux files. Output will be placed here too."))
+                              "files. Output will be placed here too."))
     parser.add_argument("--sedname", type=str, default="sed",
                         help=("nickname for the SED file, e.g. sedR500"))
-    parser.add_argument("--outname", type=str, default="",
+    parser.add_argument("--outname", type=str, default="fsps",
                         help=("Full name and path to the output fsps HDF5 file."))
     parser.add_argument("--zsol", type=float, default=0.0134,
-                        help=("Name of directory that contains the "
-                              "version of C3K spectra to use."))
+                        help=("Definition of solar metallicity"))
     parser.add_argument("--renorm", type=bool, default=False,
                         help=("Whether to renormalize fluxes to the existing file."))
     parser.add_argument("--show_coverage", type=bool, default=False,
@@ -307,27 +294,31 @@ if __name__ == "__main__":
 
     template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
     sedfile = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.sedname)
-    outname = 'c3k_legac_z{:1.4f}.spectra.bin'.format(z)
-
+    outname = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.outname)
+    
     metname = "feh{:+3.2f}_afe{:+2.1f}".format(args.feh, args.afe)
-    plot = "interp_{}.pdf".format(metname)
 
     # --- Charlie's interpolation ---
     basel_pars = get_basel_params()
     cwave, cspec, valid = get_binary_spec(len(basel_pars), zstr=zstr,
-                                         speclib='CKC14/ckc14')
+                                          speclib='CKC14/ckc14')
+
     # --- My interpolator ---
     interpolator = StarBasis(sedfile, use_params=['logg', 'logt'], logify_Z=False,
                              n_neighbors=1, verbose=False, rescale_libparams=True)
 
     # --- Do the interpolation ---
-    bwave, bspec, inds = interpolate_to_basel([basel_pars, None, None], interpolator,
+    bwave, bspec, inds = interpolate_to_basel([basel_pars, cwave, cspec], interpolator,
                                               valid=valid, renorm=args.renorm,
                                               plot=None)
 
+    # --- Write the output ---
+    with h5py.File(outname, "w") as f:
+        f.create_dataset("parameters", data=basel_pars)
+        f.create_dataset("spectra", data=bspec)
 
-    
+
     if args.show_coverage:
-        fig, ax = show_coverage(basel_pars, inds, interpolator._libparams)
+        fig, ax = show_coverage(basel_pars, interpolator._libparams, inds)
         ax.legend(loc=0)
         fig.savefig("coverage_{}.pdf".format(metname))
