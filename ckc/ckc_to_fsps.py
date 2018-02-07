@@ -135,7 +135,7 @@ if __name__ == "__main__":
         feh, afe = metlist[args.zindex]
 
     # --- make the *flux* HDF file ---
-    full_h5(feh, afe, args)
+    #full_h5(feh, afe, args)
 
     # --- make the sed file ---
     # lambda_lo, lambda_hi, R_{out, fwhm}, use_fft
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     if "sedfile" not in locals():
         template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
         sedfile = template.format(args.seddir, args.ck_vers, feh, afe, args.sedname)
-    args.nowrite = True
+    args.nowrite = False
     out = to_basel(feh, afe, sedfile, args)
     if args.nowrite:
         basel_pars, bwave, bspec, inds = out

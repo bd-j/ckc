@@ -89,7 +89,7 @@ def make_seds(specfile, fluxfile, segments=segments,
         spec = specfile["spectra"][s, :]
         flux = fluxfile["spectra"][f, :]
         wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
-                                 specres=specres, fluxres=fluxres)
+                                 specres=specres, fluxres=fluxres, verbose=verbose)
         assert len(sed) == nw, ("SED is not the same length as the desired "
                                 "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
 
@@ -109,7 +109,7 @@ def make_seds(specfile, fluxfile, segments=segments,
 
 
 def make_one_sed(swave, spec, fwave, flux, segments=segments,
-                 specres=3e5, fluxres=500, oversample=2):
+                 specres=3e5, fluxres=500, oversample=2, verbose=True):
     sed = []
     outwave = []
     for j, (lo, hi, rout, fftsmooth) in enumerate(segments):
@@ -130,7 +130,7 @@ def make_one_sed(swave, spec, fwave, flux, segments=segments,
             msg = "using lores for {} - {} @ R={}".format(lo, hi, rout)
 
         if fftsmooth:
-            msg = "; using FFT"
+            msg += "; using FFT"
         if verbose:
             print(msg)
         assert rout <= inres, "You are trying to smooth to a higher resolution than C3K provides!"

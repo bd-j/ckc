@@ -14,5 +14,5 @@ cd /n/regal/conroy_lab/bdjohnson/run_ckc/
 
 seddir=sed_r500
 mkdir $seddir
-python jieun_ckc_to_fsps.py --zindex=$SLURM_ARRAY_TASK_ID --ck_vers=c3k_v1.3 --spec_type=lores \
+python ckc_to_fsps.py --zindex=${SLURM_ARRAY_TASK_ID} --ck_vers=c3k_v1.3 --spec_type=lores \
        --seddir=${seddir} --sedname=${seddir}
