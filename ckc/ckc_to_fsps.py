@@ -133,6 +133,7 @@ if __name__ == "__main__":
     else:
         metlist = list(product(fehlist, afelist))
         feh, afe = metlist[args.zindex]
+    print(feh, afe)
 
     # --- make the *flux* HDF file ---
     #full_h5(feh, afe, args)
