@@ -8,35 +8,26 @@ from functools import partial
 from itertools import imap
 from multiprocessing import Pool
 
+
 import h5py
 #from ykc_data import sigma_to_fwhm
 from prospect.utils import smoothing
 
-from libparams import *
+
+from libparams import sigma_to_fwhm
 
 
-__all__ = ["construct_grism_outwave", "initialize_h5",
+__all__ = ["construct_outwave", "initialize_h5",
            "smooth_onez", "downsample_allz_map", # These 2 get used together
            "smooth_onez_map", "downsample_allz"] # These 2 get used together
 
 
 tiny_number = 1e-33
-    
-class function_wrapper(object):
-    """A hack to make the downsampling function pickleable for MPI.
-    """
-    def __init__(self, function, function_kwargs):
-        self.function = function
-        self.kwargs = function_kwargs
-
-    def __call__(self, args):
-        return self.function(*args, **self.kwargs)
 
 
-def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
-                            dispersion=1.0, oversample=2.0,
-                            resolution=3e5, logarithmic=False,
-                            **extras):
+def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
+                      resolution=3e5, oversample=2.0,
+                      logarithmic=False, **extras):
     """Given parameters describing the output spectrum, generate a wavelength
     grid that properly samples the resolution.
     """
@@ -48,7 +39,7 @@ def construct_grism_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
         out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
     else:
         out = np.arange(min_wave_smooth, max_wave_smooth,
-                        dispersion / oversample)
+                        resolution / oversample)
     return out    
 
 
@@ -58,7 +49,7 @@ def smooth_onez(fullres_hname, resolution=1.0, **conv_pars):
 
     Should probably be using imap here instead of in downsample_all_h5.
     """
-    outwave = construct_grism_outwave(resolution=resolution, **conv_pars)
+    outwave = construct_outwave(resolution=resolution, **conv_pars)
     #print(resolution, len(outwave), conv_pars['smoothtype'])
     with h5py.File(fullres_hname, 'r') as fullres:
         params = np.array(fullres['parameters'])
@@ -133,10 +124,6 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
             pars[nmod+i] = params[i]
             outfile.flush()
 
-    #try:
-    #    pool.close()
-    #except:
-    #    pass
     # give the output dataset objects back
     return wave, spec, pars, outfile
 
@@ -156,7 +143,7 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     # Output filename and wavelength grid
     outdir = conv_pars.get('outdir', 'lores')
     outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
-    outwave = construct_grism_outwave(**conv_pars)
+    outwave = construct_outwave(**conv_pars)
     # Output h5 datasets
     with h5py.File(hnames[0], 'r') as f:
         pars = f['parameters']
@@ -198,7 +185,7 @@ def downsample_allz_map(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     # Output filename and wavelength grid
     outdir = conv_pars.get('outdir', 'lores')
     outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
-    outwave = construct_grism_outwave(**conv_pars)
+    outwave = construct_outwave(**conv_pars)
     # Output h5 datasets
     with h5py.File(hnames[0], 'r') as f:
         pars = f['parameters']
@@ -207,7 +194,6 @@ def downsample_allz_map(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     wave, spectra, par, out = output
 
     # Map iterable
-    #downsample_with_pars = function_wrapper(smooth_onez, conv_pars)
     downsample_with_pars = partial(smooth_onez, **conv_pars)
     mapper = M(downsample_with_pars, hnames)
 
@@ -239,48 +225,76 @@ def initialize_h5(name, wave, spec, par):
     return wavelength, spectra, params, out
 
 
+def convert_resolution(R_fwhm, R_library=3e5):
+    """Convert from standard 'R" values based on lambda/FWHM to the
+    lambda/sigma values expected by smoothspec
+    """
+    R_sigma = sigma_to_fwhm / np.sqrt(1/R_fwhm**2 - 1/R_library**2)
+    return R_sigma
+
+
 if __name__ == "__main__":
 
-    #zlist = [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.25]
-    #zlist = [-2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-    #         0.0, 0.25, 0.50, 0.75]
     fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
                -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
                0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
-    #zlist = [0.0]
-    afelist = [0.0, 0.2, 0.4]
-
+    afelist = [-0.2, 0.0, 0.2, 0.4, 0.6]
     from itertools import product
     zlist = list(product(fehlist, afelist))
 
-        
-    htemp_default = '/Users/bjohnson/code/ckc/ckc/h5/ckc_feh={:+3.2f}.full.h5'
-
+    # --- Arguments -----
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default='R500',
-                        help=("Name of dictionary that describes the "
-                              "output spectral parameters"))
     parser.add_argument("--np", type=int, default=6,
                         help="number of processors")
-    parser.add_argument("--hname", type=str, default=htemp_default,
+    # Smoothing parameters
+    parser.add_argument("--resolution", type=float, default=5000.,
+                        help=("Resolution in lambda/dlambda where dlambda is FWHM"))
+    parser.add_argument("--smoothtype", type=str, default='R',
+                        help=("see smoothspec"))
+    parser.add_argument("--oversample", type=int, default=3,
+                        help=("Pixels per FWHM (resolution element)"))
+    parser.add_argument("--fftsmooth", type=bool, default=True,
+                        help=("Whether to use FFT for the smoothing"))
+    parser.add_argument("--min_wave_smooth", type=float, default=0.1e4,
+                        help=("minimum wavelength for smoothing"))
+    parser.add_argument("--max_wave_smooth", type=float, default=2.5e4,
+                        help=("maximum wavelength for smoothing"))
+    # Filenames
+    parser.add_argument("--fullres_hname", type=str, default="{}/{}_feh{{:+3.2f}}_afe{{:+2.1f}}.full.h5",
                         help=("A string that gives the full resolution "
                               "h5 filename template (to be formatted later)."))
+    parser.add_argument("--ck_vers", type=str, default="c3k_v1.3",
+                        help=("Name of directory that contains the "
+                              "version of C3K spectra to use."))
+    parser.add_argument("--fulldir", type=str, default='/n/conroyfs1/bdjohnson/data/stars/{}/h5/',
+                        help=("Location of the HDF5 versions of .spec and .flux files"))
+    parser.add_argument("--outname", type=str, default='./{}_R5K.h5',
+                        help=("Full path and name of the output HDF5 file."))
+
+    # Mess with some args
     args = parser.parse_args()
-
-
-    conv_pars = globals()[args.config]
+    args.fulldir = args.fulldir.format(args.ck_vers)
+    args.outname = args.outname.format(args.ck_vers)
+    hname_template = args.fullres_hname.format(args.fulldir, args.ck_vers)
+    params = vars(args)
+    if args.smoothtype == "R":
+        params["resolution"] = convert_resolution(params["resolution"])
+        params["oversample"] = params["oversample"] / sigma_to_fwhm
+        
+    # --- Set up the pool ----
     ncpu = args.np
-    h5temp = args.hname
-
     #ncpu = min([ncpu, len(zlist)])
     if ncpu == 1:
         pool = None
     else:
         pool = Pool(ncpu)
 
-    print(ncpu, h5temp, args.config)
-    downsample_allz(zlist=zlist, pool=pool, htemp=h5temp, **conv_pars)
+    # --- GO! ----
+    print(ncpu, h5temp)
+    downsample_allz(zlist=zlist, pool=pool, htemp=hname_template, **params)
+
+    # --- Cleanup ---
     try:
         pool.close()
     except(AttributeError):
