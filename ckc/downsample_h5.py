@@ -52,9 +52,9 @@ def mappable_smoothspec(flux, wave=None, resolution=None,
 
 def smooth_onez_map(fullres_hname, resolution=1.0,
                     outfile=None, datasets=None, pool=None,
-                    **conv_pars):
+                    do_continuum=True, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in that
-    file, and put in the supplied hdf5 datasets.  Uses `map` to distribute the
+    file, and put in the supplied hdf5 datasets.  Uses `imap` to distribute the
     spectra to different processors.
     """
     # get the imap ready
@@ -63,13 +63,12 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
     else:
         M = imap
 
-    # prepare output
-    if datasets is not None:
-        wave, spec, pars = datasets
-    else:
-        wave = outfile['wavelengths']
-        spec = outfile['spectra']
-        pars = outfile['parameters']
+    # get the existing datasets
+    wave = outfile['wavelengths']
+    pars = outfile['parameters']
+    spec = outfile['spectra']
+    if do_continuum:
+        cont = outfile['continuua']
 
     # existing output wave and number of models
     outwave = np.array(wave)
@@ -81,11 +80,6 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
         # Get the hires parameters
         params = np.array(fullres['parameters'])
         whires = np.array(fullres['wavelengths'])
-
-        # expand output arrays
-        nnew = len(params)
-        spec.resize(nmod + nnew, axis=0)
-        pars.resize(nmod + nnew, axis=0)
         
         # build a mappable function and iterator
         smooth = partial(mappable_smoothspec,
@@ -93,19 +87,30 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
                          outwave=outwave, **conv_pars)
         mapper = M(smooth, fullres['spectra'])
 
+        # expand output arrays
+        nnew = len(params)
+        spec.resize(nmod + nnew, axis=0)
+        pars.resize(nmod + nnew, axis=0)
+
         # iterate over the hires spectra placing result in output
         for i, result in enumerate(mapper):
             spec[nmod+i, :] = result
             pars[nmod+i] = params[i]
             outfile.flush()
+        if do_continuum:
+            mapper = M(smooth, fullres['continuua'])
+            cont.resize(nmod + nnew, axis=0)
+            for i, result in enumerate(mapper):
+                cont[nmod+i, :] = result
+                outfile.flush()
 
     # give the output dataset objects back
-    return wave, spec, pars, outfile
+    return outfile
 
 
 def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
                     zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
-                    **conv_pars):
+                    outname='lores.h5', **conv_pars):
     """Simple loop over hdf5 files (one for each feh) but use `map` within each
     loop to distribute the spectra in each file to different processors to be
     smoothed. Calls `smooth_onez_map`.
@@ -115,25 +120,20 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     
     hnames = [htemp.format(*np.atleast_1d(z)) for z in zlist]
 
-    # Output filename and wavelength grid
-    outdir = conv_pars.get('outdir', 'lores')
-    outname = '{}/{}.h5'.format(outdir, conv_pars['name'])
+    # Output wavelength grid
     outwave = construct_outwave(**conv_pars)
-    # Output h5 datasets
+
+    # Initialize output h5 file
     with h5py.File(hnames[0], 'r') as f:
         pars = f['parameters']
-        output = initialize_h5(outname, outwave,
-                               np.atleast_2d(outwave), pars)
-    outfile, dsets = output[-1], output[:-1]
+        outfile = initialize_h5(outname, outwave,
+                                np.atleast_2d(outwave), pars)
 
     # loop over h5 files
     for i, hfile in enumerate(hnames):
         if os.path.exists(hfile) is False:
             continue
-        output = smooth_onez_map(hfile, pool=pool, outfile=outfile,
-                                 datasets=dsets, **conv_pars)
-        outfile = output[-1]
-        dsets = output[:-1]
+        outfile = smooth_onez_map(hfile, pool=pool, outfile=outfile, **conv_pars)
 
     # write useful info and close
     for k, v in list(conv_pars.items()):
@@ -146,11 +146,13 @@ def initialize_h5(name, wave, spec, par):
     nmod, nw = len(par), len(wave)
     spectra = out.create_dataset('spectra', shape=(0, nw),
                                  maxshape=(None, nw))
+    continuua = out.create_dataset('continuua', shape=(0, nwave),
+                                   maxshape=(None, nw))
     params = out.create_dataset('parameters', shape=(0,),
                                 maxshape=(None,), dtype=par.dtype)
     wavelength = out.create_dataset('wavelengths', data=wave)
     out.flush()
-    return wavelength, spectra, params, out
+    return out
 
 
 def convert_resolution(R_fwhm, R_library=3e5):
@@ -188,6 +190,9 @@ if __name__ == "__main__":
                         help=("minimum wavelength for smoothing"))
     parser.add_argument("--max_wave_smooth", type=float, default=2.5e4,
                         help=("maximum wavelength for smoothing"))
+    parser.add_argument("--do_continuum", type=bool, default=True,
+                        help=("whether to smooth and save the continuum as well"))
+    
     # Filenames
     parser.add_argument("--fullres_hname", type=str, default="{}/{}_feh{{:+3.2f}}_afe{{:+2.1f}}.full.h5",
                         help=("A string that gives the full resolution "
@@ -200,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("--outname", type=str, default='./{}_R5K.h5',
                         help=("Full path and name of the output HDF5 file."))
 
-    # Mess with some args
+    # Mess with some args, converting R_fwhm to R_sigma for smoothspec
     args = parser.parse_args()
     args.fulldir = args.fulldir.format(args.ck_vers)
     args.outname = args.outname.format(args.ck_vers)
@@ -209,7 +214,7 @@ if __name__ == "__main__":
     if args.smoothtype == "R":
         params["resolution"] = convert_resolution(params["resolution"])
         params["oversample"] = params["oversample"] / sigma_to_fwhm
-        
+
     # --- Set up the pool ----
     ncpu = args.np
     #ncpu = min([ncpu, len(zlist)])
