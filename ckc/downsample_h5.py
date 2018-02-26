@@ -51,8 +51,8 @@ def mappable_smoothspec(flux, wave=None, resolution=None,
 
 
 def smooth_onez_map(fullres_hname, resolution=1.0,
-                    outfile=None, datasets=None, pool=None,
-                    do_continuum=True, **conv_pars):
+                    outfile=None, pool=None, do_continuum=True,
+                    verbose=False, **conv_pars):
     """Read one full resolution h5 file, downsample every spectrum in that
     file, and put in the supplied hdf5 datasets.  Uses `imap` to distribute the
     spectra to different processors.
@@ -109,7 +109,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
 
 
 def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
-                    zlist=[-2.0, -1.0, 0.0],
+                    zlist=[-2.0, -1.0, 0.0], verbose=False,
                     outname='lores.h5', **conv_pars):
     """Simple loop over hdf5 files (one for each feh) but use `map` within each
     loop to distribute the spectra in each file to different processors to be
@@ -126,13 +126,14 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     # Initialize output h5 file
     with h5py.File(hnames[0], 'r') as f:
         pars = f['parameters']
-        outfile = initialize_h5(outname, outwave,
-                                np.atleast_2d(outwave), pars)
+        outfile = initialize_h5(outname, outwave, pars)
 
     # loop over fullres h5 files
     for i, hfile in enumerate(hnames):
         if os.path.exists(hfile) is False:
             continue
+        if verbose:
+            print("doing {}".format(hfile))
         outfile = smooth_onez_map(hfile, pool=pool, outfile=outfile, **conv_pars)
 
     # write useful info and close
@@ -141,12 +142,12 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     outfile.close()
 
 
-def initialize_h5(name, wave, spec, par):
+def initialize_h5(name, wave, par):
     out = h5py.File(name, "w")
     nmod, nw = len(par), len(wave)
     spectra = out.create_dataset('spectra', shape=(0, nw),
                                  maxshape=(None, nw))
-    continuua = out.create_dataset('continuua', shape=(0, nwave),
+    continuua = out.create_dataset('continuua', shape=(0, nw),
                                    maxshape=(None, nw))
     params = out.create_dataset('parameters', shape=(0,),
                                 maxshape=(None,), dtype=par.dtype)
@@ -179,6 +180,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--np", type=int, default=6,
                         help="number of processors")
+    parser.add_argument("--verbose", type=bool, default=False,
+                        help="whether to print progress info")
     # Smoothing parameters
     parser.add_argument("--resolution", type=float, default=5000.,
                         help=("Resolution in lambda/dlambda where dlambda is FWHM"))
@@ -228,7 +231,7 @@ if __name__ == "__main__":
         pool = Pool(ncpu)
 
     # --- GO! ----
-    print(ncpu, h5temp)
+    print(ncpu, hname_template)
     downsample_allz(zlist=zlist, pool=pool, htemp=hname_template, **params)
 
     # --- Cleanup ---
