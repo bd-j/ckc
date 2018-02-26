@@ -97,7 +97,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
             spec[nmod+i, :] = result
             pars[nmod+i] = params[i]
             outfile.flush()
-        if do_continuum:
+        if do_continuum:  # This is kind of hacky
             mapper = M(smooth, fullres['continuua'])
             cont.resize(nmod + nnew, axis=0)
             for i, result in enumerate(mapper):
@@ -109,7 +109,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
 
 
 def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
-                    zlist=[-4.0, -3.0, -2.0, -1.0, 0.0],
+                    zlist=[-2.0, -1.0, 0.0],
                     outname='lores.h5', **conv_pars):
     """Simple loop over hdf5 files (one for each feh) but use `map` within each
     loop to distribute the spectra in each file to different processors to be
@@ -129,7 +129,7 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
         outfile = initialize_h5(outname, outwave,
                                 np.atleast_2d(outwave), pars)
 
-    # loop over h5 files
+    # loop over fullres h5 files
     for i, hfile in enumerate(hnames):
         if os.path.exists(hfile) is False:
             continue
@@ -165,9 +165,11 @@ def convert_resolution(R_fwhm, R_library=3e5):
 
 if __name__ == "__main__":
 
-    fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
-               -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-               0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
+
+    fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25,
+               -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5,
+               0.75, 1.0, 1.25, 1.5]
+    fehlist = fehlist[6:7]
     afelist = [-0.2, 0.0, 0.2, 0.4, 0.6]
     from itertools import product
     zlist = list(product(fehlist, afelist))
@@ -186,7 +188,7 @@ if __name__ == "__main__":
                         help=("Pixels per FWHM (resolution element)"))
     parser.add_argument("--fftsmooth", type=bool, default=True,
                         help=("Whether to use FFT for the smoothing"))
-    parser.add_argument("--min_wave_smooth", type=float, default=0.1e4,
+    parser.add_argument("--min_wave_smooth", type=float, default=0.9e4,
                         help=("minimum wavelength for smoothing"))
     parser.add_argument("--max_wave_smooth", type=float, default=2.5e4,
                         help=("maximum wavelength for smoothing"))
@@ -201,9 +203,11 @@ if __name__ == "__main__":
                         help=("Name of directory that contains the "
                               "version of C3K spectra to use."))
     parser.add_argument("--fulldir", type=str, default='/n/conroyfs1/bdjohnson/data/stars/{}/h5/',
-                        help=("Location of the HDF5 versions of .spec and .flux files"))
+                        help=("Location of the HDF5 versions of .spec and .flux files."
+                              "Note this gets formatted with 'ck_vers'"))
     parser.add_argument("--outname", type=str, default='./{}_R5K.h5',
-                        help=("Full path and name of the output HDF5 file."))
+                        help=("Full path and name of the output HDF5 file. "
+                              "Note this gets formatted with 'ck_vers'."))
 
     # Mess with some args, converting R_fwhm to R_sigma for smoothspec
     args = parser.parse_args()

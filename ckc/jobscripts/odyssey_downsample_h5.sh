@@ -13,5 +13,7 @@
 ncpu=$SLURM_JOB_CPUS_PER_NODE
 
 source activate pro
-cd /n/regal/conroy_lab/bdjohnson/ckc/ckc/
-python downsample_h5.py --config R5K --np $ncpu --hname 'h5/c3k_v1.3_feh{:+3.2f}_afe{:+2.1f}.full.h5'
+cd /n/regal/conroy_lab/bdjohnson/run_ckc
+python downsample_h5.py --resolution=5000 --smoothtype=R --oversample=3 \
+       --min_wave_smooth=1000 --max_wave_smooth=20000 --do_continuum=True \
+       --ck_vers=c3k_v1.3 --np=${ncpu}
