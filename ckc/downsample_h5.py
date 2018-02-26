@@ -108,9 +108,9 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
     return outfile
 
 
-def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
-                    zlist=[-2.0, -1.0, 0.0], verbose=False,
-                    outname='lores.h5', **conv_pars):
+def downsample_allz(pool=None, zlist=[-2.0, -1.0, 0.0],
+                    fullres_hname_template='ckc_feh={:+3.2f}.full.h5'
+                    outname='lores.h5', verbose=False, **conv_pars):
     """Simple loop over hdf5 files (one for each feh) but use `map` within each
     loop to distribute the spectra in each file to different processors to be
     smoothed. Calls `smooth_onez_map`.
@@ -118,7 +118,7 @@ def downsample_allz(pool=None, htemp='ckc_feh={:+3.2f}.full.h5',
     "Map over spectra"
     """
     
-    hnames = [htemp.format(*np.atleast_1d(z)) for z in zlist]
+    hnames = [fullres_hname_template.format(*np.atleast_1d(z)) for z in zlist]
 
     # Output wavelength grid
     outwave = construct_outwave(**conv_pars)
@@ -199,7 +199,8 @@ if __name__ == "__main__":
                         help=("whether to smooth and save the continuum as well"))
     
     # Filenames
-    parser.add_argument("--fullres_hname", type=str, default="{}/{}_feh{{:+3.2f}}_afe{{:+2.1f}}.full.h5",
+    parser.add_argument("--fullres_hname_template", type=str,
+                        default="{}/{}_feh{{:+3.2f}}_afe{{:+2.1f}}.full.h5",
                         help=("A string that gives the full resolution "
                               "h5 filename template (to be formatted later)."))
     parser.add_argument("--ck_vers", type=str, default="c3k_v1.3",
@@ -216,7 +217,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.fulldir = args.fulldir.format(args.ck_vers)
     args.outname = args.outname.format(args.ck_vers)
-    hname_template = args.fullres_hname.format(args.fulldir, args.ck_vers)
+    args.fullres_hname_template = args.fullres_hname_template.format(args.fulldir, args.ck_vers)
     params = vars(args)
     if args.smoothtype == "R":
         params["resolution"] = convert_resolution(params["resolution"])
@@ -232,7 +233,7 @@ if __name__ == "__main__":
 
     # --- GO! ----
     print(ncpu, hname_template)
-    downsample_allz(zlist=zlist, pool=pool, htemp=hname_template, **params)
+    downsample_allz(zlist=zlist, pool=pool, **params)
 
     # --- Cleanup ---
     try:
