@@ -109,7 +109,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
 
 
 def downsample_allz(pool=None, zlist=[-2.0, -1.0, 0.0],
-                    fullres_hname_template='ckc_feh={:+3.2f}.full.h5'
+                    fullres_hname_template='ckc_feh={:+3.2f}.full.h5',
                     outname='lores.h5', verbose=False, **conv_pars):
     """Simple loop over hdf5 files (one for each feh) but use `map` within each
     loop to distribute the spectra in each file to different processors to be
@@ -197,7 +197,6 @@ if __name__ == "__main__":
                         help=("maximum wavelength for smoothing"))
     parser.add_argument("--do_continuum", type=bool, default=True,
                         help=("whether to smooth and save the continuum as well"))
-    
     # Filenames
     parser.add_argument("--fullres_hname_template", type=str,
                         default="{}/{}_feh{{:+3.2f}}_afe{{:+2.1f}}.full.h5",
@@ -220,8 +219,10 @@ if __name__ == "__main__":
     args.fullres_hname_template = args.fullres_hname_template.format(args.fulldir, args.ck_vers)
     params = vars(args)
     if args.smoothtype == "R":
+        params["resolution_fwhm"] = args.resolution
         params["resolution"] = convert_resolution(params["resolution"])
         params["oversample"] = params["oversample"] / sigma_to_fwhm
+        params["logarithmic"] = True
 
     # --- Set up the pool ----
     ncpu = args.np
@@ -232,7 +233,7 @@ if __name__ == "__main__":
         pool = Pool(ncpu)
 
     # --- GO! ----
-    print(ncpu, hname_template)
+    print(ncpu, params["resolution"], params["oversample"], params["fullres_hname_template"])
     downsample_allz(zlist=zlist, pool=pool, **params)
 
     # --- Cleanup ---
