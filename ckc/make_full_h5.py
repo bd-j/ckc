@@ -295,7 +295,10 @@ if __name__ == "__main__":
         ext = '.flux'
         h5_outname = os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
     else:
-        raise(ValueError, "spec_type must be one of 'hires' or 'lores'")
+        dirname = args.spec_type + '/'
+        ext = '.spec'
+        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.RV31.h5')
+        print("spec_type must be one of 'hires' or 'lores', or looking for file in at*/{}".format(dirname))
     
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
     dstring = os.path.join(basedir, ck_vers, dstring)
