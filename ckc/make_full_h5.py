@@ -274,7 +274,7 @@ if __name__ == "__main__":
     else:
         fehlist = [args.feh]
     if args.afe < -10:
-        afelist = [-0.2, 0.0, 0.4, 0.6]
+        afelist = [-0.2, 0.0, 0.2, 0.4, 0.6]
     else:
         afelist = [args.afe]
 
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     else:
         dirname = args.spec_type + '/'
         ext = '.spec'
-        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.RV31.h5')
+        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spectype)
         print("spec_type must be one of 'hires' or 'lores', or looking for file in at*/{}".format(dirname))
     
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
