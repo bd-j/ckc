@@ -26,7 +26,7 @@ sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2.))
 
 def make_seds(specfile, fluxfile, segments=segments,
               specres=3e5, fluxres=500, outname=None,
-              verbose=True):
+              verbose=True, oversample=2):
     """
     :params specfile:
         Handle to the HDF5 file containting the high-resolution C3K spectra
@@ -43,7 +43,7 @@ def make_seds(specfile, fluxfile, segments=segments,
     # --- Wavelength arrays ----
     swave = np.array(specfile["wavelengths"])
     fwave = np.array(fluxfile["wavelengths"])
-    outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=2)[:-1]
+    outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=oversample)[:-1]
                for (lo, hi, rout, _) in segments]
     outwave = np.concatenate(outwave)
     assert np.all(np.diff(outwave) > 0), "Output wavelength grid is not ascending!"
@@ -88,7 +88,7 @@ def make_seds(specfile, fluxfile, segments=segments,
     for i, (s, f) in enumerate(zip(sind, find)):
         spec = specfile["spectra"][s, :]
         flux = fluxfile["spectra"][f, :]
-        wave, sed = make_one_sed(swave, spec, fwave, flux, segments,
+        wave, sed = make_one_sed(swave, spec, fwave, flux, segments, oversample=oversample,
                                  specres=specres, fluxres=fluxres, verbose=verbose)
         assert len(sed) == nw, ("SED is not the same length as the desired "
                                 "output wavelength grid! ({} != {})".format(len(sed), len(outwave)))
