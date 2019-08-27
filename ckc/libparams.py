@@ -1,10 +1,8 @@
 import numpy as np
+from .utils import ckms, sigma_to_fwhm
 
+__all__ = ["R10K", "R5K", "R500"]
 
-__all__ = ["sigma_to_fwhm", "R10K", "R5K", "R500"]
-
-ckms = 2.998e5
-sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2))
 Rckc = 2e5 # in FWHM?  This is the wavelength spacing
 wlims_ckc = (900, 40e4) # anstroms
 

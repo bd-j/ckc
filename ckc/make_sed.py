@@ -1,30 +1,23 @@
-# Module for producing full range spectra from c3k .spec and .flux files (or
-# rather their hdf5 versions)
-# This involves convolving the appropriate spectra by the appropriate amounts
-# for a set of segements and stitching them together.
-# Note that the .flux files actually are top-hat filtered versions of the
-# spectra, with the value at each point giving the sum of total flux within
-# some +/- from that point, and have some weird effective resolution.
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+
+"""Module for producing full range spectra from c3k .spec and .flux files (or
+rather their hdf5 versions) This involves convolving the appropriate spectra by
+the appropriate amounts for a set of segements and stitching them together. 
+Note that the .flux files actually are top-hat filtered versions of the spectra,
+with the value at each point giving the sum of total flux within some +/- from
+that point, and have some weird effective resolution.
+"""
 import numpy as np
 import h5py, json
 from prospect.utils.smoothing import smoothspec
+from .utils import construct_outwave, sigma_to_fwhm, param_order
+
+__all__ = ["make_seds", "make_one_sed"]
 
 
-param_order = ['logt', 'logg', 'feh', 'afe']
-
-
-# lambda_lo, lambda_hi, R_{out, fwhm}, use_fft
-segments = [(100., 910., 250., False),
-            (910., 2800., 250., False), 
-            (2800., 7000., 5000., True),
-            (7000., 2.0e4, 500., True),
-            (2.0e4, 1e8, 50., False)
-            ]
-
-sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2.))
-
-
-def make_seds(specfile, fluxfile, segments=segments,
+def make_seds(specfile, fluxfile, segments=[()],
               specres=3e5, fluxres=500, outname=None,
               verbose=True, oversample=2):
     """
@@ -80,7 +73,7 @@ def make_seds(specfile, fluxfile, segments=segments,
     else:
         sedout = np.zeros([nsed, nw])
         parsout = np.zeros([nsed], dtype=partype)
-        
+
     #  --- Fill H5 file ---
     # loop over spectra convolving segments and getting the SEDs, and putting
     # them in the SED file
@@ -108,7 +101,7 @@ def make_seds(specfile, fluxfile, segments=segments,
         return np.array(parsout), np.array(sedout)
 
 
-def make_one_sed(swave, spec, fwave, flux, segments=segments,
+def make_one_sed(swave, spec, fwave, flux, segments=[()],
                  specres=3e5, fluxres=500, oversample=2, verbose=True):
     sed = []
     outwave = []
@@ -154,47 +147,24 @@ def make_one_sed(swave, spec, fwave, flux, segments=segments,
     return outwave, sed
 
 
-def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
-                      dispersion=1.0, oversample=2.0,
-                      resolution=3e5, logarithmic=False,
-                      **extras):
-    """Given parameters describing the output spectrum, generate a wavelength
-    grid that properly samples the resolution.
-    """
-    if logarithmic:
-        # critically sample the resolution
-        dlnlam = 1.0 / resolution / oversample  
-        lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
-        #print(lnmin, lnmax, dlnlam, resolution, oversample)
-        out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
-    else:
-        out = np.arange(min_wave_smooth, max_wave_smooth,
-                        dispersion / oversample)
-    return out    
-
-
-
 if __name__ == "__main__":
 
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--feh", type=float, default=0.0,
-                        help=("The feh value to process."))
-    parser.add_argument("--afe", type=float, default=0.0,
-                        help=("The afe value to process."))
-    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
-                        help=("Name of directory that contains the "
-                              "version of C3K spectra to use."))
-    parser.add_argument("--basedir", type=str, default='fullres/c3k/',
-                        help=("Path to the directory containing fullres and "
-                              "flux HDF5 files. Output will be placed here too."))
-    parser.add_argument("--sedname", type=str, default="sed",
-                        help=("nickname for the SED file, e.g. sedR500"))
-    #parser.add_argument("--specname", type=str, default="",
-    #                    help=("Full name and path to the spec HDF5 file."))
-    #parser.add_argument("--fluxname", type=str, default="",
-    #                    help=("Full name and path to the flux HDF5 file."))
+    # lambda_lo, lambda_hi, R_{out, fwhm}, use_fft
+    segments = [(100., 910., 250., False),
+                (910., 2800., 250., False), 
+                (2800., 7000., 5000., True),
+                (7000., 2.0e4, 500., True),
+                (2.0e4, 1e8, 50., False)
+                ]
 
+    from .utils import get_ckc_parser
+    # key arguments are:
+    #  * --feh
+    #  * --afe
+    #  * --ck_vers
+    #  * --basedir
+    #  * --sedname
+    parser = get_ckc_parser()
     args = parser.parse_args()
 
     # --- Filenames ----
