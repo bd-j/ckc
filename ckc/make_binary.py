@@ -1,9 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Method and example code for converting individual metallicity (feh/afe combo) .fsps.h5 
+HDF5 files of SEDs to FSPS compatible binary format with ancillary info files.
+
+This assumes the SEDs have already been interpolated to the BaSeL stellar
+parameter grid, and that the spectra in the HDF5 are ordered with logt changing
+fastest and then logg.
+"""
+
 import glob
 import numpy as np
 import matplotlib.pyplot as pl
 
 import struct
 import h5py
+
+__all__ = ["sed_to_bin"]
 
 
 def sed_to_bin(sedfile, outname):
