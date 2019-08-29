@@ -22,6 +22,30 @@ def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
                       **extras):
     """Given parameters describing the output spectrum, generate a wavelength
     grid that properly samples the resolution.
+
+    Parameters
+    ----------
+    min_wave_smooth : float, optional (default: 0.)
+        Minimum wavelength of the output wavelength vector
+
+    max_wave_smooth : float (default: np.inf)
+        Maximum wavelength of the output wavelength vector,
+        same units as min_wave_smooth
+
+    dispersion : float, optional (default: 1)
+        Wavelength units per resolution element if `logarithmic=False`
+
+    resolution : float, optional
+        The value of the wavelength divided by the resolution element,
+        if `logarithmic=True`
+
+    oversample : float, optional, (default: 2)
+        The number of pixels per resolution element.
+
+    Returns
+    ---------
+    wave : ndarray
+        The output wavelength vector.
     """
     if logarithmic:
         # critically sample the resolution
@@ -45,7 +69,8 @@ def convert_resolution(R_fwhm, R_library=3e5):
 
 
 def get_ckc_parser():
-    
+    """A general purpose argument parser for ckc methods and modules.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", type=bool, default=True,
                         help="chatter?")

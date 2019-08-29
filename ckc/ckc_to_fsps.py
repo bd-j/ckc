@@ -28,7 +28,7 @@ def sed(feh, afe, segments, args):
     specfile = h5py.File(specname, "r")
     fluxfile = h5py.File(fluxname, "r")
     make_seds(specfile, fluxfile, fluxres=5e3, segments=segments,
-              outname=outname, verbose=args.verbose, 
+              outname=outname, verbose=args.verbose,
               oversample=args.oversample)
     return outname
 
@@ -44,7 +44,7 @@ def to_basel(feh, afe, sedfile, args):
                                           speclib='BaSeL3.1/basel')
     # My interpolator
     interpolator = StarBasis(sedfile, use_params=['logg', 'logt'], logify_Z=False,
-                             n_neighbors=1, verbose=args.verbose, 
+                             n_neighbors=1, verbose=args.verbose,
                              rescale_libparams=True)
 
     # Do the interpolation

@@ -21,22 +21,29 @@ def make_seds(specfile, fluxfile, segments=[()],
               specres=3e5, fluxres=500, outname=None,
               verbose=True, oversample=2):
     """
-    :params specfile:
+    Parameters
+    -------
+    specfile : Dict-like with keys "parameters", "wavelengths", and "spectra"
         Handle to the HDF5 file containting the high-resolution C3K spectra
 
-    :params fluxfile:
+    fluxfile: Dict-like with keys "parameters", "wavelengths", and "spectra"
         Handle to the HDF5 file containing the low-resolution C3K "flux"
         spectra, which is assumed matched line by line to the specfile
 
-    :params segments:
+    segments : list of 4-tuples
         A list of 4-tuples describing the wavelength segments and their
         resolution, and whether to use FFT (not recommended near the edge o the
         hires file).  Each tuple should have the form (lo, hi, R, bool)
+
+    Returns
+    ------
+    Generates an HDF file at `outname`
     """
     # --- Wavelength arrays ----
     swave = np.array(specfile["wavelengths"])
     fwave = np.array(fluxfile["wavelengths"])
-    outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True, oversample=oversample)[:-1]
+    outwave = [construct_outwave(lo, hi, resolution=rout, logarithmic=True,
+                                 oversample=oversample)[:-1]
                for (lo, hi, rout, _) in segments]
     outwave = np.concatenate(outwave)
     assert np.all(np.diff(outwave) > 0), "Output wavelength grid is not ascending!"
@@ -52,7 +59,8 @@ def make_seds(specfile, fluxfile, segments=[()],
                         for f in params.dtype.names])
         ind = ind.prod(axis=0).astype(int)
         if ind.sum() != 1:
-            print("could not find unique flux spectrum @ params {}".format(dict(zip(param_order, params))))
+            msg = "could not find unique flux spectrum @ params {}"
+            print(msg.format(dict(zip(param_order, params))))
         else:
             sind.append(i)
             find.append(ind.tolist().index(1))
@@ -101,8 +109,48 @@ def make_seds(specfile, fluxfile, segments=[()],
         return np.array(parsout), np.array(sedout)
 
 
-def make_one_sed(swave, spec, fwave, flux, segments=[()],
-                 specres=3e5, fluxres=500, oversample=2, verbose=True):
+def make_one_sed(swave, spec, fwave, flux, segments=[()], clip=1e-33,
+                 specres=3e5, fluxres=5000., oversample=2, verbose=True):
+    """
+    Parameters
+    -----------
+    swave : ndarray of shape (nwh,)
+        Full resolution spectrum wavelength vector for the `.spec` output of synthe.
+
+    spec : ndarray of shape (nws,)
+        Full resolution flux vector.
+
+    fwave : ndarray of shape (nwl,)
+        Wavelength vector of the lower resolution `flux` spectrum provided by synthe.
+
+    flux : ndarray of shape (nwl,)
+        Low resolution flux vector, same units as `spec`
+
+    segments: list of tuples
+        Specification of the wavelength segments, of the form
+        (wave_min, wave_max, resolution, use_fft)
+
+    clip : float (default: 1e-33)
+        Lower limit for the output SED fluxes
+
+    specres : float (default: 3e5)
+        The resolution of the input spectrum given by the `swave` and `spec` vectors.
+
+    fluxres : float (default: 5e3)
+        The resolution of the input spectrum given by the `fwave` and `flux` vectors.
+
+    oversample : float (default, 2)
+        Number of output pixels per FWHM of the line-spread function.
+
+    Returns
+    --------
+
+    outwave : ndarray of shape (nout,)
+        Wavelength vector of the output downsampled SED
+
+    sed : ndarray of shape (nout,)
+        Flux vector of the output downsampled SED (same units as `spec` and `flux`)
+    """
     sed = []
     outwave = []
     for j, (lo, hi, rout, fftsmooth) in enumerate(segments):
@@ -132,6 +180,8 @@ def make_one_sed(swave, spec, fwave, flux, segments=[()],
         # convert to lambda/sigma_lambda
         rsmooth *= sigma_to_fwhm
         s = smoothspec(inwave, inspec, rsmooth, smoothtype="R", outwave=out, fftsmooth=fftsmooth)
+        if clip > 0:
+            np.clip(s, clip, np.inf, out=s)
 
         sed.append(s)
         outwave.append(out)
@@ -139,6 +189,7 @@ def make_one_sed(swave, spec, fwave, flux, segments=[()],
     outwave = np.concatenate(outwave)
     sed = np.concatenate(sed)
     # now replace the lambda > fwave.max() (plus some padding) with a BB
+    # Assumes units are fnu
     fwave_max = np.max(fwave[flux > 0])
     ind_max = np.searchsorted(outwave, fwave_max)
     sed[ind_max-9:] = sed[ind_max - 10] * (outwave[ind_max - 10] / outwave[ind_max-9:])**2
