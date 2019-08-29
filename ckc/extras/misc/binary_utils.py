@@ -1,5 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Methods for working directly with the binary files included with FSPS.
+This module is deprecated and kept for historical purposes
+"""
+
 import numpy as np
 import struct, glob
+
 
 __all__ = ["downsample_onespec", "smooth", "smooth_vel", "smooth_wave",
            "read_and_downsample_onez", "read_and_downsample_spectra",

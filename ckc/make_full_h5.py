@@ -1,7 +1,11 @@
-# This module exists to create HDF5 files of the full resolution ckc grid from
-# the ascii files.
-# The ascii read-in takes about 15s per spectrum.
-# The output is split into separate hdf5 files based on `feh`
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+""" This module exists to create HDF5 files of the full resolution ckc grid 
+from the ascii files.
+The ascii read-in takes about 15s per spectrum fort hires
+The output is split into separate hdf5 files based on `feh` and `afe`
+"""
 
 import os, sys, time
 from itertools import product
@@ -9,6 +13,14 @@ import numpy as np
 import h5py
 from multiprocessing import Pool
 from functools import partial
+
+from .utils import param_order
+
+
+__all__ = ["get_hires_spectrum", "get_lores_spectrum", "get_lores_wavegrid",
+           "existing_params", "files_and_params", "transform_params",
+           "specset", "full_h5"]
+
 
 t = [np.array([2500., 2800., 3000., 3200.]),
      np.arange(3500., 13000., 250.),
@@ -21,45 +33,36 @@ full_params = {'t': np.concatenate(t),
                'afe': [0.0]
                }
 
-param_order = ['t', 'g', 'feh', 'afe']
 pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
-def transform_params(ps):
-    """Logify Teff
+def full_h5(feh, afe, args):
+    """Make the full spectrum HDF file for a single feh, afe combo.
+    Handles much of the file formatting based on `args`
     """
-    ps[0] = np.log10(ps[0])
-    return tuple(ps)
+    # Paths and filename templates
+    ck_vers = args.ck_vers  # ckc_v1.2 | c3k_v1.3
+    basedir = args.basedir
+    if args.spec_type == 'hires':
+        dirname = 'spec/'
+        ext = '.spec.gz'
+        h5_outname = os.path.join(args.fulldir, ck_vers + '_feh{:+3.2f}_afe{:+2.1f}.full.h5')
+    elif args.spec_type == 'lores':
+        dirname = 'flux/'
+        ext = '.flux'
+        h5_outname = os.path.join(args.fulldir, ck_vers + '_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
+    else:
+        raise(ValueError, "spec_type must be one of 'hires' or 'lores'")
+    dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
+    dstring = os.path.join(basedir, ck_vers, dstring)
+    fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
+    searchstring = os.path.join(dstring, '*'+ext)
 
-
-def files_and_params(searchstring='.'):
-
-    import glob, re
-
-    # get all matching files
-    files = glob.glob(searchstring)
-
-    print(searchstring, len(files))
-    # set up parsing tools
-    tpat, ts = re.compile(r"_t.{5}"), slice(2, None)
-    zpat, zs = re.compile(r"_feh.{5}"), slice(4, None)
-    gpat, gs = re.compile(r"g.{4}."), slice(1, 5)
-    apat, asl = re.compile(r"_afe.{4}"), slice(4, None)
-
-    # parse filenames for parameters
-    feh = [float(re.findall(zpat, f)[-1][zs]) for f in files]
-    teff = [float(re.findall(tpat, f)[-1][ts]) for f in files]
-    logg = [float(re.findall(gpat, f)[-1][gs]) for f in files]
-    try:
-        afe = [float(re.findall(apat, f)[-1][asl]) for f in files]
-    except(IndexError):
-        afe = len(logg) * [0.0]
-
-    # make sure we get the param order right using the global param_order
-    parlists = {'t': teff, 'g': logg, 'feh': feh, 'afe': afe} 
-    params = zip(*[parlists[p] for p in param_order])
-    return files, params
+    # Actually do the thing
+    z = (feh, afe)
+    fn = specset(z, h5template=h5_outname, searchstring=searchstring,
+                 fstring=fstring, dstring=dstring)
 
 
 def get_hires_spectrum(filename=None, param=None,
@@ -132,6 +135,14 @@ def get_lores_spectrum(filename=None, param=None,
     return flux, flux, wave
 
 
+def get_lores_wavegrid(params, fstring, dstring):
+    wave = []
+    for i, p in enumerate(params):
+        s, c, w = get_lores_spectrum(param=p, fstring=fstring, dstring=dstring)
+        wave = np.unique(np.concatenate([wave, w]))
+    return np.sort(wave)
+
+
 def existing_params(params, fstring='', dstring=''):
     """Test for the existence of a spec file for each of the
     parameters in the given list, and return a list of only those
@@ -149,12 +160,44 @@ def existing_params(params, fstring='', dstring=''):
     return exists
 
 
-def get_lores_wavegrid(params, fstring, dstring):
-    wave = []
-    for i, p in enumerate(params):
-        s, c, w = get_lores_spectrum(param=p, fstring=fstring, dstring=dstring)
-        wave = np.unique(np.concatenate([wave, w]))
-    return np.sort(wave)
+def files_and_params(searchstring='.'):
+    """Given a path to search for files, return all matching files as well as
+    row matched lists of the corresponding spectral parameters.  This assumes
+    a certain filename format.
+    """
+
+    import glob, re
+
+    # get all matching files
+    files = glob.glob(searchstring)
+
+    print(searchstring, len(files))
+    # set up parsing tools
+    tpat, ts = re.compile(r"_t.{5}"), slice(2, None)
+    zpat, zs = re.compile(r"_feh.{5}"), slice(4, None)
+    gpat, gs = re.compile(r"g.{4}."), slice(1, 5)
+    apat, asl = re.compile(r"_afe.{4}"), slice(4, None)
+
+    # parse filenames for parameters
+    feh = [float(re.findall(zpat, f)[-1][zs]) for f in files]
+    teff = [float(re.findall(tpat, f)[-1][ts]) for f in files]
+    logg = [float(re.findall(gpat, f)[-1][gs]) for f in files]
+    try:
+        afe = [float(re.findall(apat, f)[-1][asl]) for f in files]
+    except(IndexError):
+        afe = len(logg) * [0.0]
+
+    # make sure we get the param order right using the global param_order
+    parlists = {'t': teff, 'g': logg, 'feh': feh, 'afe': afe} 
+    params = zip(*[parlists[p] for p in param_order])
+    return files, params
+
+
+def transform_params(ps):
+    """Logify Teff
+    """
+    ps[0] = np.log10(ps[0])
+    return tuple(ps)
 
 
 def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
@@ -217,11 +260,11 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
                 s = np.interp(wave, w, s, left=0., right=0.)
                 c = 0.
             try:
-                spec[i,:] = s
-                cont[i,:] = c
+                spec[i, :] = s
+                cont[i, :] = c
             except:
-                spec[i,:] = 0
-                cont[i,:] = 0
+                spec[i, :] = 0
+                cont[i, :] = 0
                 print('problem storing spectrum @ params {}'.format(dict(zip(pnames, p))))
             if (i % 10) == 0:
                 f.flush()
@@ -232,32 +275,18 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
 
 if __name__ == "__main__":
 
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--np", type=int, default=6,
-                        help="number of processors")
-    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
-                        help=("Name of directory that contains the "
-                              "version of C3K spectra to use."))
-    parser.add_argument("--spec_type", type=str, default='hires',
-                        help=("Whether to create HDF5 for the full resolution "
-                              "spectra ('hires') or for the low resolution, larger "
-                              "wavelength range .flux files ('lores')"))
-    parser.add_argument("--outdir", type=str, default='./h5/',
-                        help=("Location to store the output."))
-    parser.add_argument("--basedir", type=str, default='/n/conroyfs1/cconroy/kurucz/grids',
-                        help=("Location of the directories containing different C3K versions."))
-    parser.add_argument("--feh", type=float, default=-99,
-                        help=("The feh value to process.  If < -10.0, then use a "
-                              "list of all feh values that are expected to exist"))
-    parser.add_argument("--afe", type=float, default=-99,
-                        help=("The afe value to process.  If < -10.0, then use a "
-                              "list of all afe values that are expected to exist"))
-    
-
-
+    from .utils import get_ckc_parser
+    # key arguments are:
+    #  * --feh
+    #  * --afe
+    #  * --np
+    #  * --ck_vers
+    #  * --spec_type
+    #  * --fulldir
+    #  * --basedir
+    parser = get_ckc_parser()
     args = parser.parse_args()
-    
+
     ncpu = args.np
     if ncpu == 1:
         M = map
@@ -289,15 +318,15 @@ if __name__ == "__main__":
     if args.spec_type == 'hires':
         dirname = 'spec/'
         ext = '.spec.gz'
-        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
+        h5_outname =  os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
     elif args.spec_type == 'lores':
         dirname = 'flux/'
         ext = '.flux'
-        h5_outname = os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
+        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
     else:
         dirname = args.spec_type + '/'
         ext = '.spec'
-        h5_outname =  os.path.join(args.outdir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spectype)
+        h5_outname =  os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spectype)
         print("spec_type must be one of 'hires' or 'lores', or looking for file in at*/{}".format(dirname))
     
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)

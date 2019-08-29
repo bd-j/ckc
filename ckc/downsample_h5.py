@@ -10,33 +10,13 @@ from multiprocessing import Pool
 
 import h5py
 from prospect.utils import smoothing
-from libparams import sigma_to_fwhm
+from .utils import construct_outwave, convert_resolution
+from .utils import sigma_to_fwhm, tiny_number
 
 
-__all__ = ["construct_outwave", "initialize_h5",
-#           "smooth_onez", "downsample_allz_map", # These 2 get used together
-           "smooth_onez_map", "downsample_allz"] # These 2 get used together
-
-
-tiny_number = 1e-33
-
-
-def construct_outwave(min_wave_smooth=0.0, max_wave_smooth=np.inf,
-                      resolution=3e5, oversample=2.0,
-                      logarithmic=False, **extras):
-    """Given parameters describing the output spectrum, generate a wavelength
-    grid that properly samples the resolution.
-    """
-    if logarithmic:
-        # critically sample the resolution
-        dlnlam = 1.0 / resolution / oversample  
-        lnmin, lnmax = np.log(min_wave_smooth), np.log(max_wave_smooth)
-        #print(lnmin, lnmax, dlnlam, resolution, oversample)
-        out = np.exp(np.arange(lnmin, lnmax + dlnlam, dlnlam))
-    else:
-        out = np.arange(min_wave_smooth, max_wave_smooth,
-                        resolution / oversample)
-    return out    
+__all__ = ["initialize_h5",
+           # "smooth_onez", "downsample_allz_map", # These 2 get used together
+           "smooth_onez_map", "downsample_allz"]  # These 2 get used together
 
 
 def mappable_smoothspec(flux, wave=None, resolution=None,
@@ -156,16 +136,7 @@ def initialize_h5(name, wave, par):
     return out
 
 
-def convert_resolution(R_fwhm, R_library=3e5):
-    """Convert from standard 'R" values based on lambda/FWHM to the
-    lambda/sigma values expected by smoothspec
-    """
-    R_sigma = sigma_to_fwhm / np.sqrt(1/R_fwhm**2 - 1/R_library**2)
-    return R_sigma
-
-
 if __name__ == "__main__":
-
 
     fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25,
                -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5,

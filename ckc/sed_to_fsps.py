@@ -1,5 +1,10 @@
-# Module for converting single metallicity SED files in HDF format to the
-# parameters and binary format expected by fsps
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Module for converting single metallicity SED files in HDF format to the
+parameters and binary format expected by fsps
+"""
+
 import sys, os
 from itertools import product
 import numpy as np
@@ -7,6 +12,8 @@ import numpy as np
 import h5py
 
 from prospect.sources import StarBasis, BigStarBasis
+
+__all__ = ["get_basel_params", "get_binary_spec", "interpolate_to_basel"]
 
 
 def dict_struct(strct):
@@ -35,7 +42,7 @@ def get_binary_spec(ngrid, zstr="0.0200", speclib="BaSeL3.1/basel"):
     """
     :param zstr: for basel "0.0002", "0.0006", "0.0020", "0.0063", "0.0200", "0.0632"
     """
-    from binary_utils import read_binary_spec
+    from .binary_utils import read_binary_spec
     specname = "{}/SPECTRA/{}".format(os.environ["SPS_HOME"], speclib)
     wave = np.genfromtxt("{}.lambda".format(specname))
     try:
@@ -262,21 +269,15 @@ def show_coverage(basel_pars, libparams, inds):
 
 if __name__ == "__main__":
 
-
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--feh", type=float, default=0.0,
-                        help=("The feh value to process."))
-    parser.add_argument("--afe", type=float, default=0.0,
-                        help=("The afe value to process."))
-    parser.add_argument("--ck_vers", type=str, default='c3k_v1.3',
-                        help=("Name of directory that contains the "
-                              "version of C3K spectra to use."))
-    parser.add_argument("--basedir", type=str, default='fullres/c3k/',
-                        help=("Path to the directory containing sed HDF5 "
-                              "files. Output will be placed here too."))
-    parser.add_argument("--sedname", type=str, default="sed",
-                        help=("nickname for the SED file, e.g. sedR500"))
+    from .utils import get_ckc_parser
+    # key arguments are:
+    #  * --feh
+    #  * --afe
+    #  * --ck_vers
+    #  * --basedir
+    #  * --sedname
+    parser = get_ckc_parser()
+    args = parser.parse_args()
     parser.add_argument("--outname", type=str, default="fsps",
                         help=("Full name and path to the output fsps HDF5 file."))
     parser.add_argument("--zsol", type=float, default=0.0134,
@@ -287,7 +288,7 @@ if __name__ == "__main__":
                         help=("Whether to make a coverage figure."))
 
     args = parser.parse_args()
-    
+
     # --- Filenames ---
     z = args.zsol * 10**args.feh
     zstr = "{:1.4f}".format(z)
@@ -295,7 +296,7 @@ if __name__ == "__main__":
     template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
     sedfile = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.sedname)
     outname = template.format(args.basedir, args.ck_vers, args.feh, args.afe, args.outname)
-    
+
     metname = "feh{:+3.2f}_afe{:+2.1f}".format(args.feh, args.afe)
 
     # --- Charlie's interpolation ---
