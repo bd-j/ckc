@@ -74,7 +74,7 @@ def get_ckc_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", type=bool, default=True,
                         help="chatter?")
-    parser.add_argument("--np", type=int, default=6,
+    parser.add_argument("--np", type=int, default=1,
                         help="number of processors")
 
     # Metallicity choices
@@ -98,7 +98,7 @@ def get_ckc_parser():
                         help=("Location of the directories containing "
                               "different C3K versions."))
     parser.add_argument("--fulldir", type=str,
-                        default='/n/conroyfs1/bdjohnson/data/stars/{}/h5/',
+                        default='/n/conroyfs1/bdjohnson/data/stars/{}/fullres/',
                         help=("Location to store the HDF5 versions of .spec and .flux"))
     parser.add_argument("--seddir", type=str, default='./',
                         help=("Path to the directory where the sed files will be placed."))

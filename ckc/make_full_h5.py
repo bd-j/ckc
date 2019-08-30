@@ -286,6 +286,7 @@ if __name__ == "__main__":
     #  * --basedir
     parser = get_ckc_parser()
     args = parser.parse_args()
+    args.fulldir = args.fulldir.format(args.ck_vers)
 
     ncpu = args.np
     if ncpu == 1:
