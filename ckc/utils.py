@@ -3,11 +3,12 @@
 
 import numpy as np
 import argparse
-
+import struct
 
 __all__ = ["ckms", "sigma_to_fwhm", "tiny_number", "param_order"
            "construct_outwave", "convert_resolution",
-           "get_ckc_parser"]
+           "get_ckc_parser",
+           "read_binary_spec", "sed_to_bin"]
 
 
 # Useful constants
@@ -112,3 +113,34 @@ def get_ckc_parser():
                               "larger wavelength range .flux files ('lores')"))
 
     return parser
+
+
+def read_binary_spec(filename, nw, nspec):
+    """Read a binary file with name ``filename`` containing ``nspec``
+    spectra each of length ``nw`` wavelength points and return an
+    array of shape (nspec, nw)
+    """
+    count = 0
+    spec = np.empty([nspec, nw])
+    with open(filename, 'rb') as f:
+        while count < nspec:
+                count += 1
+                for iw in range(nw):
+                    byte = f.read(4)
+                    spec[count-1, iw] = struct.unpack('f', byte)[0]
+    return spec
+
+
+def sed_to_bin(sedfile, outname):
+    """Note the sedfile is expected to already have the spectra in the correct
+    order (logt changing fastest, then logg)
+    """
+    with h5py.File(sedfile, "r") as f:
+        spectra = np.array(f["spectra"])
+    with open(outname, "wb") as outfile:
+        for spec in spectra:
+            for flux in spec:
+                if flux < 1e-33:
+                    flux = 1e-33
+                outfile.write(struct.pack('f', flux))
+

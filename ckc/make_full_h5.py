@@ -37,10 +37,17 @@ pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
-def full_h5(feh, afe, args):
+def full_h5(z, args=None):
     """Make the full spectrum HDF file for a single feh, afe combo.
     Handles much of the file formatting based on `args`
+
+    Parameters
+    -----
+    z : 2 element tuple of floats (feh, afe)
     """
+
+    z = np.atleast_1d(z)
+
     # Paths and filename templates
     ck_vers = args.ck_vers  # ckc_v1.2 | c3k_v1.3
     basedir = args.basedir
@@ -63,6 +70,7 @@ def full_h5(feh, afe, args):
     z = (feh, afe)
     fn = specset(z, h5template=h5_outname, searchstring=searchstring,
                  fstring=fstring, dstring=dstring)
+    return fn
 
 
 def get_hires_spectrum(filename=None, param=None,

@@ -13,25 +13,9 @@ import glob
 import numpy as np
 import matplotlib.pyplot as pl
 
-import struct
 import h5py
 
-__all__ = ["sed_to_bin"]
-
-
-def sed_to_bin(sedfile, outname):
-    """Note the sedfile is expected to already have the spectra in the correct
-    order (logt changing fastest, then logg)
-    """
-    with h5py.File(sedfile, "r") as f:
-        spectra = np.array(f["spectra"])
-    with open(outname, "wb") as outfile:
-        for spec in spectra:
-            for flux in spec:
-                if flux < 1e-33:
-                    flux = 1e-33
-                outfile.write(struct.pack('f', flux))
-
+from .utils import sed_to_bin
 
 if __name__ == "__main__":
 

@@ -42,7 +42,7 @@ def get_binary_spec(ngrid, zstr="0.0200", speclib="BaSeL3.1/basel"):
     """
     :param zstr: for basel "0.0002", "0.0006", "0.0020", "0.0063", "0.0200", "0.0632"
     """
-    from .binary_utils import read_binary_spec
+    from .utils import read_binary_spec
     specname = "{}/SPECTRA/{}".format(os.environ["SPS_HOME"], speclib)
     wave = np.genfromtxt("{}.lambda".format(specname))
     try:
