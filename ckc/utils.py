@@ -4,8 +4,10 @@
 import numpy as np
 import argparse
 import struct
+import h5py
 
-__all__ = ["ckms", "sigma_to_fwhm", "tiny_number", "param_order"
+
+__all__ = ["ckms", "sigma_to_fwhm", "tiny_number", "param_order",
            "construct_outwave", "convert_resolution",
            "get_ckc_parser",
            "read_binary_spec", "sed_to_bin"]

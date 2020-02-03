@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-""" This module exists to create HDF5 files of the full resolution ckc grid 
+""" This module exists to create HDF5 files of the full resolution ckc grid
 from the ascii files.
 The ascii read-in takes about 15s per spectrum fort hires
 The output is split into separate hdf5 files based on `feh` and `afe`
@@ -33,7 +33,7 @@ full_params = {'t': np.concatenate(t),
                'afe': [0.0]
                }
 
-pname_map = {'t':'logt', 'g':'logg', 'feh':'feh', 'afe':'afe'}
+pname_map = {'t': 'logt', 'g': 'logg', 'feh': 'feh', 'afe': 'afe'}
 pnames = [pname_map[p] for p in param_order]
 
 
@@ -64,10 +64,10 @@ def full_h5(z, args=None):
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
     dstring = os.path.join(basedir, ck_vers, dstring)
     fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
-    searchstring = os.path.join(dstring, '*'+ext)
+    searchstring = os.path.join(dstring, '*' + ext)
 
     # Actually do the thing
-    z = (feh, afe)
+    #z = (feh, afe)
     fn = specset(z, h5template=h5_outname, searchstring=searchstring,
                  fstring=fstring, dstring=dstring)
     return fn
@@ -108,10 +108,10 @@ def get_hires_spectrum(filename=None, param=None,
         return 0, 0, None
     fulldf = np.loadtxt(fn)
     nc = fulldf.shape[-1]
-    wave = np.array(fulldf[:,0])
-    full_spec = np.array(fulldf[:,1]) # spectra
+    wave = np.array(fulldf[:, 0])
+    full_spec = np.array(fulldf[:, 1])  # spectra
     if nc > 2:
-        full_cont = np.array(fulldf[:,2]) # continuum
+        full_cont = np.array(fulldf[:, 2])  # continuum
     else:
         full_cont = 0.0
 
@@ -222,7 +222,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
     """
     z = np.atleast_1d(z)
     h5name = h5template.format(*z)
-    
+
     # Get a set of existing parameters for this feh value
     if searchstring is None:
         # Use a specified grid of parameters
@@ -327,7 +327,7 @@ if __name__ == "__main__":
     if args.spec_type == 'hires':
         dirname = 'spec/'
         ext = '.spec.gz'
-        h5_outname =  os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
+        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
     elif args.spec_type == 'lores':
         dirname = 'flux/'
         ext = '.flux'
@@ -335,19 +335,24 @@ if __name__ == "__main__":
     else:
         dirname = args.spec_type + '/'
         ext = '.spec'
-        h5_outname =  os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spectype)
+        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spec_type)
         print("spec_type must be one of 'hires' or 'lores', or looking for file in at*/{}".format(dirname))
-    
+
     dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
     dstring = os.path.join(basedir, ck_vers, dstring)
     fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
-    searchstring = os.path.join(dstring, '*'+ext)
+    searchstring = os.path.join(dstring, '*' + ext)
+
+    print("Looking for files in directories of the form:\n{}".format(dstring))
+    print("Each file should have a name of the form:\n{}".format(fstring))
+    print("Writing output files to:\n{}".format(h5_outname))
 
     # String to use for looking for files in a given zdirectory
     #searchstring = 'data/fullres/dM_all/dM_feh??.??/spec/*spec.gz'
 
     # --- Run -----
-    partial_specset = partial(specset, h5template=h5_outname, searchstring=searchstring,
+    partial_specset = partial(specset, h5template=h5_outname,
+                              searchstring=searchstring,
                               dstring=dstring, fstring=fstring)
     ts = time.time()
     filenames = list(M(partial_specset, list(metlist)))
