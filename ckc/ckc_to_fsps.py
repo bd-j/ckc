@@ -19,6 +19,36 @@ __all__ = ["sed", "to_basel"]
 
 
 def sed(feh, afe, segments, args):
+    """Resample the full resolution spectra for a single feh-afe pair to lower
+    resolution spectra, and write to HDF5 file
+
+    Parameters
+    ----------
+    feh : float
+        Value of [Fe/H]
+
+    afe : float
+        Value of [alpha/Fe]
+
+    segements : list of tuples
+        Each tuple gives (wave_lo(float), wave_hi(float), R(float), FFT(bool))
+
+    args : namespace
+        Must have the attributes
+        * ck_vers - version of C3K/CKC
+        * fulldir - location of full resolution spectra HDF5 files
+        * seddir - output location
+        * sedname - add this label to the filenames
+        * verbose
+        * oversample - number of pixels per standard deviation of the LSF
+
+    Returns
+    -------
+    Generates an HDF5 file at `outname`
+
+    outname : string
+        The name of the HDF5 file into which the resampled spectra have been stored
+    """
     template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.h5"
     specname = template.format(args.fulldir, args.ck_vers, feh, afe, "full")
     fluxname = template.format(args.fulldir, args.ck_vers, feh, afe, "flux")
@@ -34,6 +64,27 @@ def sed(feh, afe, segments, args):
 
 
 def to_basel(feh, afe, sedfile, args):
+    """Interpolate spectrally resampled spectra onto the BaSeL logt-logg grid,
+    and write to a new HDF5 file with extension `.fsps.h5`
+
+    Parameters
+    ----------
+    feh : float
+        Value of [Fe/H]
+
+    afe : float
+        Value of [alpha/Fe]
+
+    sedfile : string
+        Name of the HDF5 file with the resampled spectra for this feh-afe pair
+
+    args : namespace
+        Must have the attributes
+        * seddir - output location
+        * sedname - add this label to the output filenames
+        * nowrite - whether to write the output to HDF5 or return the
+                    interpolated spectra
+    """
     # Filenames
     template = "{}/{}_feh{:+3.2f}_afe{:+2.1f}.{}.fsps.h5"
     outname = template.format(args.seddir, args.ck_vers, feh, afe, args.sedname)

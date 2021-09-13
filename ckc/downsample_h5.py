@@ -60,7 +60,7 @@ def smooth_onez_map(fullres_hname, resolution=1.0,
         # Get the hires parameters
         params = np.array(fullres['parameters'])
         whires = np.array(fullres['wavelengths'])
-        
+
         # build a mappable function and iterator
         smooth = partial(mappable_smoothspec,
                          wave=whires, resolution=resolution,
@@ -97,7 +97,7 @@ def downsample_allz(pool=None, zlist=[-2.0, -1.0, 0.0],
 
     "Map over spectra"
     """
-    
+
     hnames = [fullres_hname_template.format(*np.atleast_1d(z)) for z in zlist]
 
     # Output wavelength grid
