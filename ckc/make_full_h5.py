@@ -14,7 +14,7 @@ import h5py
 from multiprocessing import Pool
 from functools import partial
 
-from .utils import param_order
+param_order = ['t', 'g', 'feh', 'afe']
 
 
 __all__ = ["get_hires_spectrum", "get_lores_spectrum", "get_lores_wavegrid",
@@ -99,7 +99,7 @@ def get_hires_spectrum(filename=None, param=None,
         # hack to get correct g widths
         pars['g'] = '{:4.2f}'.format(pars['g'])
         dirname = dstring.format(pars['feh'], pars['afe'])
-        fn = dirname + fstring.format(**pars)
+        fn = os.path.join(dirname, fstring.format(**pars))
     else:
         fn = filename
 
@@ -125,7 +125,7 @@ def get_lores_spectrum(filename=None, param=None,
         # hack to get correct g widths
         pars['g'] = '{:4.2f}'.format(pars['g'])
         dirname = dstring.format(pars['feh'], pars['afe'])
-        fn = dirname + fstring.format(**pars)
+        fn = os.path.join(dirname, fstring.format(**pars))
     else:
         fn = filename
 
@@ -196,9 +196,9 @@ def files_and_params(searchstring='.'):
         afe = len(logg) * [0.0]
 
     # make sure we get the param order right using the global param_order
-    parlists = {'t': teff, 'g': logg, 'feh': feh, 'afe': afe} 
+    parlists = {'t': teff, 'g': logg, 'feh': feh, 'afe': afe}
     params = zip(*[parlists[p] for p in param_order])
-    return files, params
+    return files, list(params)
 
 
 def transform_params(ps):
@@ -238,7 +238,11 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
         params = np.array(params)
 
     # skip directories that don't exist
-    if len(params) == 0:
+    try:
+        nfile = len(params)
+        if nfile == 0:
+            return (h5name, 0)
+    except(TypeError):
         return (h5name, 0)
 
     # choose which reader to use and get the wavelength grid
@@ -252,7 +256,7 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
 
     # Build and fill the output HDF5 file
     nspec, nwave, npar = len(params), len(wave), len(params[0])
-    dt = np.dtype(zip(pnames, npar * [np.float]))
+    dt = np.dtype(list(zip(pnames, npar * [float])))
     pars = np.empty(nspec, dtype=dt)
     with h5py.File(h5name, 'w') as f:
         spec = f.create_dataset('spectra', (nspec, nwave))
@@ -278,23 +282,29 @@ def specset(z, h5template='h5/ckc_feh={:+3.2f}.full.h5',
                 f.flush()
 
     print('finished {}'.format(h5name))
-    return h5name, len(params)
+    return h5name, nfile
 
 
 if __name__ == "__main__":
 
-    from .utils import get_ckc_parser
-    # key arguments are:
-    #  * --feh
-    #  * --afe
-    #  * --np
-    #  * --ck_vers
-    #  * --spec_type
-    #  * --fulldir
-    #  * --basedir
-    parser = get_ckc_parser()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--basedir", type=str,
+                        default="/n/holystore01/LABS/conroy_lab/Lab/cconroy/kurucz/grids/")
+    parser.add_argument("--outdir", type=str,
+                        default="/n/holystore01/LABS/conroy_lab/Lab/bdjohnson/data/kurucz/")
+    parser.add_argument("--ck_vers", type=str,
+                        default="c3k_v1.3")
+    parser.add_argument("--subvers", type=str,
+                        default="OPTFAL_vt10", help="Use 'spec' or 'flux' for default hires or lores respecitively.")
+    parser.add_argument("--np", type=int,
+                        default=20)
+    parser.add_argument("--feh", type=float, nargs="*",
+                        default=[-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25,
+                                 -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5])
+    parser.add_argument("--afe", type=float, nargs="*",
+                        default=[-0.2, 0.0, 0.2, 0.4, 0.6])
     args = parser.parse_args()
-    args.fulldir = args.fulldir.format(args.ck_vers)
 
     ncpu = args.np
     if ncpu == 1:
@@ -304,44 +314,21 @@ if __name__ == "__main__":
         M = pool.map
 
     # --- Metallicities to loop over/map ---
-    #fehlist = full_params['feh']
-    if args.feh < -10:
-        fehlist = [-4.0, -3.5, -3.0, -2.75, -2.5, -2.25, -2.0,
-                   -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25,
-                   0.0, 0.25, 0.5]#, 0.75, 1.0, 1.25, 1.5]
-    else:
-        fehlist = [args.feh]
-    if args.afe < -10:
-        afelist = [-0.2, 0.0, 0.2, 0.4, 0.6]
-    else:
-        afelist = [args.afe]
-
+    fehlist = args.feh
+    afelist = args.afe
     metlist = list(product(fehlist, afelist))
     print(len(metlist))
 
     # ---- Paths and filename templates -----
-    ck_vers = args.ck_vers  # ckc_v1.2 | c3k_v1.3
-    basedir = args.basedir
-    #basedir = 'data/fullres'
-
-    if args.spec_type == 'hires':
-        dirname = 'spec/'
-        ext = '.spec.gz'
-        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.full.h5')
-    elif args.spec_type == 'lores':
-        dirname = 'flux/'
-        ext = '.flux'
-        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}.flux.h5')
+    if args.subvers == "flux":
+        ext = "flux"
     else:
-        dirname = args.spec_type + '/'
-        ext = '.spec'
-        h5_outname = os.path.join(args.fulldir, ck_vers+'_feh{:+3.2f}_afe{:+2.1f}') + '.{}.h5'.format(args.spec_type)
-        print("spec_type must be one of 'hires' or 'lores', or looking for file in at*/{}".format(dirname))
-
-    dstring = os.path.join("at12_feh{:+3.2f}_afe{:+2.1f}", dirname)
-    dstring = os.path.join(basedir, ck_vers, dstring)
-    fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}" + ext
-    searchstring = os.path.join(dstring, '*' + ext)
+        ext = "spec"
+    h5_outname = (os.path.join(args.outdir, args.ck_vers, args.subvers.lower(), args.ck_vers) +
+                  "_feh{:+3.2f}_afe{:+2.1f}"+f".{args.subvers}.h5")
+    dstring = os.path.join(args.basedir, args.ck_vers, "at12_feh{:+3.2f}_afe{:+2.1f}/", args.subvers)
+    fstring = "at12_feh{feh:+3.2f}_afe{afe:+2.1f}_t{t:05.0f}g{g:.4s}." + ext
+    searchstring = os.path.join(dstring, f"*.{ext}")
 
     print("Looking for files in directories of the form:\n{}".format(dstring))
     print("Each file should have a name of the form:\n{}".format(fstring))

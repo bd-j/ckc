@@ -146,3 +146,23 @@ def sed_to_bin(sedfile, outname):
                     flux = 1e-33
                 outfile.write(struct.pack('f', flux))
 
+
+def combine_h5(files, outname):
+    wave, parameters, spectra = None, [], []
+    for f in files:
+        with h5py.File(f, "r") as h5:
+            parameters.append(h5["parameters"][:])
+            spectra.append(h5["spectra"][:])
+            w = h5["wavelengths"][:]
+            if wave is None:
+                wave = w
+            else:
+                assert np.allclose(wave, w)
+
+    parameters = np.concatenate(parameters)
+    spectra = np.concatenate(spectra)
+
+    with h5py.File(outname, "w") as out:
+        w = out.create_dataset("wavelengths", data=wave)
+        p = out.create_dataset("parameters", data=parameters)
+        s = out.create_dataset("spectra", data=spectra)
